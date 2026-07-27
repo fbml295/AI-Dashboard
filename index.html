@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Refiner AI — Giám sát Vận hành Nghiền Bột Giấy</title>
+<title>AI-Dashboard — Giám sát Vận hành Nghiền Bột Giấy</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
@@ -26,7 +26,7 @@
   <!-- ===================== HEADER / STATUS RAIL ===================== -->
   <header class="status-rail">
     <div class="brand">
-      REFINER&nbsp;AI <small>SCADA TREND MONITOR</small>
+      AI-DASHBOARD <small>SCADA TREND MONITOR</small>
     </div>
 
     <div class="status-group">
@@ -53,11 +53,11 @@
 
     <section class="sidebar-section sidebar-section--files is-disabled" id="driveSection">
       <div class="sidebar-section__header">
-        <span class="sidebar-section__title">Thư mục: refiner_AI</span>
+        <span class="sidebar-section__title">Thư mục: AI-Dashboard</span>
         <button class="btn btn--ghost btn--icon" id="btnRefreshFiles" title="Làm mới danh sách">⟳</button>
       </div>
       <div class="file-list" id="fileListContainer">
-        <div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "refiner_AI".</div>
+        <div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "AI-Dashboard".</div>
       </div>
       <div class="file-meta-bar">
         <span id="activeFileName">Chưa chọn file</span>
@@ -81,7 +81,22 @@
         <input type="checkbox" id="chkNormalize" />
         Chuẩn hoá 0–100% (so sánh hình dạng đa tín hiệu)
       </label>
-      <div style="flex:1"></div>
+      <div class="toolbar-spacer"></div>
+
+      <div class="kpi-cards" id="kpiCards" title="Di chuột trên biểu đồ để xem giá trị tại thời điểm đó; mặc định hiển thị giá trị mới nhất.">
+        <div class="kpi-card" id="kpiClass1Card">
+          <span class="kpi-card__label">PHÂN LOẠI (CLASS 1)</span>
+          <span class="kpi-card__value" id="kpiClass1Value">—</span>
+        </div>
+        <div class="kpi-card" id="kpiQualityCard">
+          <span class="kpi-card__label">CHỈ SỐ CHẤT LƯỢNG</span>
+          <span class="kpi-card__value" id="kpiQualityValue">—</span>
+          <span class="kpi-card__status" id="kpiQualityStatus">—</span>
+        </div>
+      </div>
+
+      <div class="toolbar-spacer"></div>
+
       <button class="btn btn--primary" id="btnAnalyzeAI" disabled>◆ PHÂN TÍCH AI</button>
     </div>
 
@@ -118,6 +133,17 @@
         ⚠ Key được lưu trong <b>localStorage</b> của trình duyệt này — không mã hoá, không đồng bộ giữa các máy.
         Chỉ dùng key có giới hạn quota riêng (không dùng key billing chung của tổ chức) khi mở dashboard này trên máy dùng chung.
         Lấy key miễn phí tại <a class="help-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+      </div>
+
+      <hr class="modal-divider" />
+
+      <label class="field-label">CHU KỲ TỰ ĐỘNG CẬP NHẬT DỮ LIỆU (PHÚT)</label>
+      <div class="input-row">
+        <input type="number" id="refreshIntervalInput" min="0" step="1" placeholder="vd: 5 — nhập 0 để tắt" />
+        <button class="btn btn--ghost" id="btnSaveRefreshInterval">Lưu</button>
+      </div>
+      <div class="help-hint">
+        Chỉ tự động tải lại khi đang đăng nhập Google và có 1 file đang mở. Nếu không có ai đăng nhập, hệ thống không gọi Drive/Gemini.
       </div>
     </div>
     <div class="modal__footer">
