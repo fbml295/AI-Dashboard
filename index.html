@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Refiner AI — Giám sát Vận hành Nghiền Bột Giấy</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="css/style.css" />
+
+<!-- ECharts: vẽ trendline -->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
+<!-- PapaParse: parse CSV -->
+<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+<!-- SheetJS: parse Excel (.xlsx/.xls) nếu người dùng để file Excel trong Drive -->
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<!-- Google Identity Services: OAuth 2.0 client-side -->
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+</head>
+<body>
+
+<div class="app-shell">
+
+  <!-- ===================== HEADER / STATUS RAIL ===================== -->
+  <header class="status-rail">
+    <div class="brand">
+      REFINER&nbsp;AI <small>SCADA TREND MONITOR</small>
+    </div>
+
+    <div class="status-group">
+      <div class="status-lamp" id="statusDrive" data-state="off">
+        <span class="led"></span><span class="status-label">DRIVE: CHƯA ĐĂNG NHẬP</span>
+      </div>
+      <div class="status-lamp" id="statusGemini" data-state="off">
+        <span class="led"></span><span class="status-label">GEMINI: CHƯA CÓ API KEY</span>
+      </div>
+      <div class="status-lamp" id="statusNetwork" data-state="ok">
+        <span class="led"></span><span class="status-label">MẠNG: ONLINE</span>
+      </div>
+    </div>
+
+    <div class="live-clock" id="liveClock">--:--:--</div>
+
+    <button class="btn btn--ghost btn--icon" id="btnOpenSettings" title="Cài đặt Gemini API Key">⚙ CÀI ĐẶT</button>
+    <button class="btn btn--primary" id="btnSignIn">ĐĂNG NHẬP GOOGLE</button>
+    <button class="btn btn--ghost is-hidden" id="btnSignOut">ĐĂNG XUẤT</button>
+  </header>
+
+  <!-- ===================== SIDEBAR ===================== -->
+  <aside class="sidebar">
+
+    <section class="sidebar-section sidebar-section--files is-disabled" id="driveSection">
+      <div class="sidebar-section__header">
+        <span class="sidebar-section__title">Thư mục: refiner_AI</span>
+        <button class="btn btn--ghost btn--icon" id="btnRefreshFiles" title="Làm mới danh sách">⟳</button>
+      </div>
+      <div class="file-list" id="fileListContainer">
+        <div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "refiner_AI".</div>
+      </div>
+      <div class="file-meta-bar">
+        <span id="activeFileName">Chưa chọn file</span>
+        <span id="activeFileRows">—</span>
+      </div>
+    </section>
+
+    <section class="sidebar-section sidebar-section--tags">
+      <div class="sidebar-section__header">
+        <span class="sidebar-section__title">Tín hiệu (Tags)</span>
+      </div>
+      <div class="tag-list" id="tagListContainer"></div>
+    </section>
+
+  </aside>
+
+  <!-- ===================== MAIN ===================== -->
+  <main class="main-area">
+    <div class="main-toolbar">
+      <label class="toggle-switch">
+        <input type="checkbox" id="chkNormalize" />
+        Chuẩn hoá 0–100% (so sánh hình dạng đa tín hiệu)
+      </label>
+      <div style="flex:1"></div>
+      <button class="btn btn--primary" id="btnAnalyzeAI" disabled>◆ PHÂN TÍCH AI</button>
+    </div>
+
+    <div class="chart-wrap">
+      <div id="mainChart"></div>
+    </div>
+  </main>
+
+</div>
+
+<!-- ===================== AI RESULT DRAWER ===================== -->
+<div class="ai-result-panel" id="aiResultPanel">
+  <div class="ai-result-panel__header">
+    <span class="ai-result-panel__title">Kết quả phân tích Gemini</span>
+    <button class="btn btn--ghost btn--icon" id="btnCloseAiResult">✕</button>
+  </div>
+  <div class="ai-result-panel__body" id="aiResultContent"></div>
+</div>
+
+<!-- ===================== SETTINGS MODAL ===================== -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal">
+    <div class="modal__header">
+      <span class="modal__title">Cài đặt — Gemini API Key</span>
+      <button class="btn btn--ghost btn--icon" id="btnCloseSettings">✕</button>
+    </div>
+    <div class="modal__body">
+      <label class="field-label">API KEY (Google AI Studio)</label>
+      <div class="input-row">
+        <input type="password" id="geminiApiKeyInput" placeholder="AIza..." autocomplete="off" />
+        <button class="btn btn--ghost" id="btnToggleKeyVisibility">HIỆN</button>
+      </div>
+      <div class="warning-box">
+        ⚠ Key được lưu trong <b>localStorage</b> của trình duyệt này — không mã hoá, không đồng bộ giữa các máy.
+        Chỉ dùng key có giới hạn quota riêng (không dùng key billing chung của tổ chức) khi mở dashboard này trên máy dùng chung.
+        Lấy key miễn phí tại <a class="help-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
+      </div>
+    </div>
+    <div class="modal__footer">
+      <button class="btn btn--ghost" id="btnClearApiKey">Xoá Key</button>
+      <button class="btn btn--primary" id="btnSaveApiKey">Lưu Key</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== LOADING OVERLAY ===================== -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-spinner"></div>
+  <div class="loading-message" id="loadingMessage">Đang xử lý...</div>
+</div>
+
+<!-- ===================== TOASTS ===================== -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
+<script src="js/config.js"></script>
+<script src="js/downsample.js"></script>
+<script src="js/auth.js"></script>
+<script src="js/drive.js"></script>
+<script src="js/csvParser.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/gemini.js"></script>
+<script src="js/settings.js"></script>
+<script src="js/statusIndicators.js"></script>
+<script src="js/app.js"></script>
+
+</body>
+</html>
