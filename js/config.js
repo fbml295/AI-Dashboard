@@ -23,7 +23,7 @@ const APP_CONFIG = {
   DRIVE_SCOPE: 'https://www.googleapis.com/auth/drive.readonly',
 
   // Model Gemini dùng cho phân tích. Có thể đổi sang bản khác nếu Google cập nhật.
-  GEMINI_MODEL: 'gemini-2.0-flash',
+  GEMINI_MODEL: 'gemini-3-flash-preview',
 
   // Ngưỡng số điểm dữ liệu / series trước khi kích hoạt LTTB downsampling.
   DOWNSAMPLE_THRESHOLD: 2000,
@@ -36,7 +36,7 @@ const APP_CONFIG = {
   //   < LOW  -> "QUÁ THÔ"
   //   > HIGH -> "QUÁ MỊN"
   //   còn lại -> "ĐẠT"
-  QUALITY_BANDS: { low: 4, high: 6 },
+  QUALITY_BANDS: { low: 3, high: 7 },
 
   // Key lưu trong localStorage
   STORAGE_KEYS: {
