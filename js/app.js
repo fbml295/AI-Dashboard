@@ -222,6 +222,25 @@ function onAuthStatusChange({ signedIn }) {
   }
 }
 
+/**
+ * Thư viện Google Identity Services (accounts.google.com/gsi/client) đôi khi
+ * tải chậm hơn app.js do phụ thuộc mạng. Hàm này đợi cho tới khi window.google
+ * sẵn sàng trước khi khởi tạo AuthModule, tránh lỗi "google is not defined"
+ * xảy ra âm thầm (không hiển thị gì cho người dùng, chỉ thấy trong Console).
+ */
+function waitForGoogleIdentityServices(callback, attemptsLeft = 50) {
+  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+    callback();
+    return;
+  }
+  if (attemptsLeft <= 0) {
+    showToast('Không thể tải thư viện đăng nhập Google. Kiểm tra kết nối mạng và tải lại trang.', 'error');
+    console.error('Google Identity Services (gsi/client) không tải được sau nhiều lần thử.');
+    return;
+  }
+  setTimeout(() => waitForGoogleIdentityServices(callback, attemptsLeft - 1), 100);
+}
+
 window.addEventListener('DOMContentLoaded', () => {
   buildTagPanel();
   setTagPanelEnabled(false);
@@ -235,6 +254,8 @@ window.addEventListener('DOMContentLoaded', () => {
 
   ChartModule.init('mainChart');
 
-  AuthModule.init(onAuthStatusChange);
   StatusIndicatorsModule.setDriveStatus(false);
+  waitForGoogleIdentityServices(() => {
+    AuthModule.init(onAuthStatusChange);
+  });
 });

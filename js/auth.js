@@ -38,7 +38,8 @@ const AuthModule = (() => {
 
   function signIn() {
     if (!tokenClient) {
-      console.error('AuthModule chưa được init().');
+      console.error('AuthModule chưa được init() - thư viện Google Identity Services có thể chưa tải xong.');
+      alert('Thư viện đăng nhập Google chưa sẵn sàng. Vui lòng đợi vài giây rồi thử lại, hoặc tải lại trang (F5).');
       return;
     }
     // prompt: 'consent' lần đầu, các lần sau GIS tự động dùng '' (silent) nếu còn hợp lệ
