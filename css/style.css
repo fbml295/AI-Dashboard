@@ -342,6 +342,66 @@ button {
 .toggle-switch input:checked { border-color: var(--accent-cyan); }
 .toggle-switch input:checked::after { background: var(--accent-cyan); transform: translateX(15px); }
 
+.toolbar-spacer { flex: 1; }
+
+.kpi-cards {
+  display: flex;
+  gap: 10px;
+}
+
+.kpi-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  min-width: 148px;
+  padding: 6px 18px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent-cyan);
+  border-radius: var(--radius);
+}
+
+.kpi-card__label {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+  color: var(--text-faint);
+}
+
+.kpi-card__value {
+  font-family: var(--font-mono);
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  line-height: 1.1;
+}
+
+.kpi-card__status {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-faint);
+}
+.kpi-card__status--good { color: var(--accent-green); }
+.kpi-card__status--warn { color: var(--accent-amber); }
+.kpi-card__status--bad  { color: var(--accent-red); }
+
+.modal-divider {
+  border: none;
+  border-top: 1px solid var(--border);
+  margin: 16px 0;
+}
+
+.help-hint {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-faint);
+  line-height: 1.5;
+}
+
 .chart-wrap {
   flex: 1;
   min-height: 0;
