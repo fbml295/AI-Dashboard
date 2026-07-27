@@ -9,12 +9,12 @@
 const APP_CONFIG = {
   // Lấy từ Google Cloud Console > APIs & Services > Credentials > OAuth Client ID
   // Đây là Client ID public, KHÔNG phải Client Secret -> an toàn để commit lên repo public.
-  GOOGLE_CLIENT_ID: 'PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: '468592081191-tm93okutphcafti4ilee8m1r5u2lp2jj.apps.googleusercontent.com',
 
   // ID của folder Google Drive "AI-Dashboard" đã chia sẻ.
   // Cách lấy: mở folder trên Drive -> copy đoạn cuối URL:
   // https://drive.google.com/drive/folders/<FOLDER_ID_NAM_O_DAY>
-  DRIVE_FOLDER_ID: 'PASTE_YOUR_FOLDER_ID_HERE',
+  DRIVE_FOLDER_ID: '14XsG0Ke6-ayyZxshVEF790S92rPEBkIh',
 
   // Tên folder hiển thị trên UI (chỉ mang tính hiển thị, không ảnh hưởng logic gọi API)
   DRIVE_FOLDER_DISPLAY_NAME: 'AI-Dashboard',
