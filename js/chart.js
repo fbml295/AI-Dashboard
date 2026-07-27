@@ -23,10 +23,24 @@ const ChartModule = (() => {
   let chartInstance = null;
   let currentDataset = null; // { timestamps, series, rowCount }
 
-  function init(domId) {
+  function init(domId, onHoverChange) {
     const el = document.getElementById(domId);
     chartInstance = echarts.init(el, null, { renderer: 'canvas' });
     window.addEventListener('resize', () => chartInstance.resize());
+
+    if (typeof onHoverChange === 'function') {
+      // Báo lại timestamp (trục X) đang nằm dưới con trỏ chuột, để các panel
+      // KPI bên ngoài (class1/quality) đồng bộ theo đúng thời điểm đang xem.
+      chartInstance.on('updateAxisPointer', (event) => {
+        const xAxisInfo = (event.axesInfo || []).find(a => a.axisDim === 'x');
+        if (xAxisInfo && xAxisInfo.value != null) {
+          onHoverChange(xAxisInfo.value);
+        }
+      });
+      // Khi chuột rời khỏi vùng chart hoàn toàn -> quay về hiển thị giá trị mới nhất
+      chartInstance.getZr().on('globalout', () => onHoverChange(null));
+    }
+
     renderEmpty();
     return chartInstance;
   }

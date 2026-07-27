@@ -10,7 +10,8 @@ const DriveModule = (() => {
   const DRIVE_API_BASE = 'https://www.googleapis.com/drive/v3';
 
   /**
-   * Liệt kê các file CSV/Excel trong folder đã cấu hình (DRIVE_FOLDER_ID).
+   * Liệt kê các file CSV/Excel trong folder đã cấu hình (DRIVE_FOLDER_ID,
+   * mặc định trỏ tới folder "AI-Dashboard" trên Google Drive của người dùng).
    */
   async function listFilesInFolder() {
     const token = await AuthModule.ensureValidToken();

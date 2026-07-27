@@ -91,6 +91,104 @@ function rerenderChart() {
   document.getElementById('btnAnalyzeAI').disabled = state.selectedKeys.length === 0;
 }
 
+/* --------------------------- KPI CARDS (Class1 / Quality) --------------------------- */
+
+/**
+ * Tìm index có timestamp gần nhất với `target` trong mảng đã sắp xếp tăng dần.
+ * Dùng binary search vì mảng timestamps có thể lên tới hàng trăm nghìn phần tử.
+ */
+function findNearestIndex(sortedTimestamps, target) {
+  const n = sortedTimestamps.length;
+  if (n === 0) return -1;
+  if (target <= sortedTimestamps[0]) return 0;
+  if (target >= sortedTimestamps[n - 1]) return n - 1;
+
+  let lo = 0, hi = n - 1;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (sortedTimestamps[mid] === target) return mid;
+    if (sortedTimestamps[mid] < target) lo = mid + 1;
+    else hi = mid;
+  }
+  const before = lo - 1;
+  if (before < 0) return lo;
+  return (target - sortedTimestamps[before] <= sortedTimestamps[lo] - target) ? before : lo;
+}
+
+function getQualityBand(value) {
+  const { low, high } = APP_CONFIG.QUALITY_BANDS;
+  if (value < low) return { label: 'QUÁ THÔ', cssClass: 'bad' };
+  if (value > high) return { label: 'QUÁ MỊN', cssClass: 'warn' };
+  return { label: 'ĐẠT', cssClass: 'good' };
+}
+
+/**
+ * Cập nhật 2 ô KPI "Phân loại" và "Chất lượng".
+ * ts = null  -> hiển thị giá trị dòng dữ liệu MỚI NHẤT trong file đang mở.
+ * ts = số ms -> hiển thị giá trị tại điểm gần nhất với thời điểm đang hover trên chart.
+ */
+function updateKpiCards(ts) {
+  const class1ValEl = document.getElementById('kpiClass1Value');
+  const qualityValEl = document.getElementById('kpiQualityValue');
+  const qualityStatusEl = document.getElementById('kpiQualityStatus');
+
+  if (!state.dataset || !state.dataset.timestamps.length) {
+    class1ValEl.textContent = '—';
+    qualityValEl.textContent = '—';
+    qualityStatusEl.textContent = '—';
+    qualityStatusEl.className = 'kpi-card__status';
+    return;
+  }
+
+  const { timestamps, series } = state.dataset;
+  const idx = (ts == null) ? timestamps.length - 1 : findNearestIndex(timestamps, ts);
+
+  const class1Val = series['class1'] ? series['class1'][idx] : NaN;
+  const qualityVal = series['quality'] ? series['quality'][idx] : NaN;
+
+  class1ValEl.textContent = Number.isFinite(class1Val) ? `${class1Val.toFixed(1)}%` : '—';
+
+  if (Number.isFinite(qualityVal)) {
+    qualityValEl.textContent = `${qualityVal.toFixed(1)} / 10`;
+    const band = getQualityBand(qualityVal);
+    qualityStatusEl.textContent = band.label;
+    qualityStatusEl.className = `kpi-card__status kpi-card__status--${band.cssClass}`;
+  } else {
+    qualityValEl.textContent = '—';
+    qualityStatusEl.textContent = '—';
+    qualityStatusEl.className = 'kpi-card__status';
+  }
+}
+
+/* --------------------------- AUTO-REFRESH (chu kỳ tự tải lại từ Drive) --------------------------- */
+
+let autoRefreshTimer = null;
+
+function getRefreshIntervalMinutes() {
+  const raw = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.REFRESH_INTERVAL_MIN);
+  const parsed = raw == null ? APP_CONFIG.DEFAULT_REFRESH_INTERVAL_MIN : parseInt(raw, 10);
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : APP_CONFIG.DEFAULT_REFRESH_INTERVAL_MIN;
+}
+
+/**
+ * (Re)khởi động bộ đếm tự động tải lại dữ liệu.
+ * Điều kiện chạy: có người đang đăng nhập Google VÀ đang có 1 file được mở.
+ * Nếu không thoả, timer sẽ tự bỏ qua ở mỗi lần tick (không gọi API tốn quota).
+ */
+function scheduleAutoRefresh() {
+  if (autoRefreshTimer) {
+    clearInterval(autoRefreshTimer);
+    autoRefreshTimer = null;
+  }
+  const minutes = getRefreshIntervalMinutes();
+  if (minutes <= 0) return;
+
+  autoRefreshTimer = setInterval(async () => {
+    if (!AuthModule.isSignedIn() || !state.currentFile) return; // không ai dùng -> bỏ qua, không tốn quota
+    await loadFile(state.currentFile, { silent: true });
+  }, minutes * 60 * 1000);
+}
+
 /* --------------------------- FILE LIST (DRIVE) --------------------------- */
 
 async function refreshFileList() {
@@ -122,11 +220,18 @@ async function refreshFileList() {
   }
 }
 
-async function loadFile(file) {
-  setLoading(true, `Đang tải "${file.name}"...`);
+/**
+ * options.silent = true  -> dùng cho auto-refresh: không reset tag đang chọn,
+ * không hiện overlay toàn màn hình (chỉ toast nhỏ), giữ nguyên trải nghiệm
+ * đang xem của người dùng.
+ */
+async function loadFile(file, options = {}) {
+  const silent = !!options.silent;
+  if (!silent) setLoading(true, `Đang tải "${file.name}"...`);
+
   try {
     const content = await DriveModule.downloadFileContent(file);
-    setLoading(true, 'Đang phân tích dữ liệu CSV/Excel...');
+    if (!silent) setLoading(true, 'Đang phân tích dữ liệu CSV/Excel...');
     const dataset = await CsvParserModule.parseFile(content);
 
     if (!dataset.rowCount) {
@@ -135,21 +240,32 @@ async function loadFile(file) {
 
     state.dataset = dataset;
     state.currentFile = file;
-    state.selectedKeys = [];
 
-    document.querySelectorAll('.tag-checkbox').forEach(cb => { cb.checked = false; });
-    setTagPanelEnabled(true);
+    if (!silent) {
+      state.selectedKeys = [];
+      document.querySelectorAll('.tag-checkbox').forEach(cb => { cb.checked = false; });
+      setTagPanelEnabled(true);
+      ChartModule.renderEmpty();
+    } else {
+      // Giữ nguyên tag đang chọn, chỉ vẽ lại với dữ liệu mới
+      rerenderChart();
+    }
 
     document.getElementById('activeFileName').textContent = file.name;
     document.getElementById('activeFileRows').textContent = `${dataset.rowCount.toLocaleString('vi-VN')} dòng`;
+    updateKpiCards(null);
 
-    ChartModule.renderEmpty();
-    showToast(`Đã tải "${file.name}" - ${dataset.rowCount.toLocaleString('vi-VN')} dòng dữ liệu.`, 'success');
+    showToast(
+      silent
+        ? `Đã tự động cập nhật "${file.name}" - ${dataset.rowCount.toLocaleString('vi-VN')} dòng.`
+        : `Đã tải "${file.name}" - ${dataset.rowCount.toLocaleString('vi-VN')} dòng dữ liệu.`,
+      'success'
+    );
   } catch (err) {
     console.error(err);
     showToast(`Lỗi đọc file: ${err.message}`, 'error');
   } finally {
-    setLoading(false);
+    if (!silent) setLoading(false);
   }
 }
 
@@ -213,12 +329,16 @@ function onAuthStatusChange({ signedIn }) {
 
   if (signedIn) {
     refreshFileList();
+    scheduleAutoRefresh();
   } else {
     document.getElementById('fileListContainer').innerHTML =
-      '<div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "refiner_AI".</div>';
+      '<div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "AI-Dashboard".</div>';
     state.dataset = null;
+    state.currentFile = null;
     setTagPanelEnabled(false);
     ChartModule.renderEmpty();
+    updateKpiCards(null);
+    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
   }
 }
 
@@ -252,7 +372,7 @@ window.addEventListener('DOMContentLoaded', () => {
 
   SettingsModule.init((hasKey) => StatusIndicatorsModule.setGeminiStatus(hasKey));
 
-  ChartModule.init('mainChart');
+  ChartModule.init('mainChart', (ts) => updateKpiCards(ts));
 
   StatusIndicatorsModule.setDriveStatus(false);
   waitForGoogleIdentityServices(() => {

@@ -9,25 +9,39 @@
 const APP_CONFIG = {
   // Lấy từ Google Cloud Console > APIs & Services > Credentials > OAuth Client ID
   // Đây là Client ID public, KHÔNG phải Client Secret -> an toàn để commit lên repo public.
-  GOOGLE_CLIENT_ID: '468592081191-tm93okutphcafti4ilee8m1r5u2lp2jj.apps.googleusercontent.com',
+  GOOGLE_CLIENT_ID: 'PASTE_YOUR_CLIENT_ID_HERE.apps.googleusercontent.com',
 
-  // ID của folder Google Drive "refiner_AI" đã chia sẻ.
+  // ID của folder Google Drive "AI-Dashboard" đã chia sẻ.
   // Cách lấy: mở folder trên Drive -> copy đoạn cuối URL:
   // https://drive.google.com/drive/folders/<FOLDER_ID_NAM_O_DAY>
-  DRIVE_FOLDER_ID: '14XsG0Ke6-ayyZxshVEF790S92rPEBkIh',
+  DRIVE_FOLDER_ID: 'PASTE_YOUR_FOLDER_ID_HERE',
+
+  // Tên folder hiển thị trên UI (chỉ mang tính hiển thị, không ảnh hưởng logic gọi API)
+  DRIVE_FOLDER_DISPLAY_NAME: 'AI-Dashboard',
 
   // Quyền yêu cầu: chỉ đọc, không sửa/xoá file trên Drive của người dùng.
   DRIVE_SCOPE: 'https://www.googleapis.com/auth/drive.readonly',
 
   // Model Gemini dùng cho phân tích. Có thể đổi sang bản khác nếu Google cập nhật.
-  GEMINI_MODEL: 'gemini-3-flash-preview',
+  GEMINI_MODEL: 'gemini-2.0-flash',
 
   // Ngưỡng số điểm dữ liệu / series trước khi kích hoạt LTTB downsampling.
   DOWNSAMPLE_THRESHOLD: 2000,
 
+  // Chu kỳ tự động tải lại dữ liệu mặc định (phút). 0 = tắt.
+  // Người dùng có thể đổi giá trị này trong Cài đặt, lưu ở localStorage.
+  DEFAULT_REFRESH_INTERVAL_MIN: 5,
+
+  // Ngưỡng đánh giá chỉ số chất lượng (thang 0-10, 5 là đạt chuẩn):
+  //   < LOW  -> "QUÁ THÔ"
+  //   > HIGH -> "QUÁ MỊN"
+  //   còn lại -> "ĐẠT"
+  QUALITY_BANDS: { low: 4, high: 6 },
+
   // Key lưu trong localStorage
   STORAGE_KEYS: {
     GEMINI_API_KEY: 'refinerAI_geminiApiKey',
+    REFRESH_INTERVAL_MIN: 'refinerAI_refreshIntervalMin',
   },
 };
 
@@ -64,7 +78,7 @@ const TAG_DEFINITIONS = [
   { key: 'pine',          label: 'Tỷ lệ gỗ Thông (Pine)', unit: '%',  group: 'Nguyên liệu', type: 'numeric', color: '#ccff90' },
   { key: 'mixwood',       label: 'Tỷ lệ gỗ hỗn hợp',   unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#eeff41' },
 
-  { key: 'class1',        label: 'Phân loại (Class 1)', unit: '',     group: 'Chất lượng', type: 'categorical', color: '#40c4ff' },
+  { key: 'class1',        label: 'Phân loại (Class 1)', unit: '%',    group: 'Chất lượng', type: 'numeric', color: '#40c4ff' },
   { key: 'quality',       label: 'Chỉ số chất lượng',   unit: '',     group: 'Chất lượng', type: 'numeric', color: '#00e5ff' },
 ];
 

@@ -20,8 +20,24 @@ const SettingsModule = (() => {
     const clearBtn = document.getElementById('btnClearApiKey');
     const input = document.getElementById('geminiApiKeyInput');
     const toggleVisBtn = document.getElementById('btnToggleKeyVisibility');
+    const refreshInput = document.getElementById('refreshIntervalInput');
+    const refreshSaveBtn = document.getElementById('btnSaveRefreshInterval');
 
     input.value = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.GEMINI_API_KEY) || '';
+
+    const storedInterval = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.REFRESH_INTERVAL_MIN);
+    refreshInput.value = storedInterval != null ? storedInterval : APP_CONFIG.DEFAULT_REFRESH_INTERVAL_MIN;
+
+    refreshSaveBtn.addEventListener('click', () => {
+      const minutes = parseInt(refreshInput.value, 10);
+      if (!Number.isFinite(minutes) || minutes < 0) {
+        alert('Vui lòng nhập số phút hợp lệ (>= 0).');
+        return;
+      }
+      localStorage.setItem(APP_CONFIG.STORAGE_KEYS.REFRESH_INTERVAL_MIN, String(minutes));
+      if (typeof window.scheduleAutoRefresh === 'function') window.scheduleAutoRefresh();
+      alert(minutes === 0 ? 'Đã tắt tự động cập nhật.' : `Đã đặt chu kỳ tự động cập nhật: mỗi ${minutes} phút.`);
+    });
 
     openBtn.addEventListener('click', () => modal.classList.add('is-open'));
     closeBtn.addEventListener('click', () => modal.classList.remove('is-open'));
