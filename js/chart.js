@@ -191,9 +191,36 @@ const ChartModule = (() => {
   }
 
   /**
+   * So sánh trung bình đoạn ĐẦU file với đoạn CUỐI file (mỗi đoạn ~10% số điểm,
+   * tối thiểu 5 điểm) để xác định tag đang có xu hướng TĂNG / GIẢM / ỔN ĐỊNH.
+   * Đây là căn cứ quan trọng để AI nhận diện "biến động" theo đúng yêu cầu vận hành.
+   */
+  function computeTrend(values) {
+    const n = values.length;
+    if (n < 10) return { direction: 'không đủ dữ liệu', deltaPct: 0, firstAvg: null, lastAvg: null };
+
+    const chunk = Math.max(5, Math.floor(n * 0.1));
+    const firstAvg = values.slice(0, chunk).reduce((a, b) => a + b, 0) / chunk;
+    const lastAvg = values.slice(-chunk).reduce((a, b) => a + b, 0) / chunk;
+    const delta = lastAvg - firstAvg;
+    const deltaPct = firstAvg !== 0 ? (delta / Math.abs(firstAvg)) * 100 : 0;
+
+    let direction = 'ổn định';
+    if (Math.abs(deltaPct) > 5) direction = delta > 0 ? 'tăng' : 'giảm';
+
+    return {
+      direction,
+      deltaPct: Number(deltaPct.toFixed(1)),
+      firstAvg: Number(firstAvg.toFixed(3)),
+      lastAvg: Number(lastAvg.toFixed(3)),
+    };
+  }
+
+  /**
    * Lấy mẫu dữ liệu đại diện của các tag đang hiển thị để gửi cho Gemini.
    * Để tiết kiệm token & chi phí, chỉ gửi tối đa `maxPoints` điểm/​tag
-   * (đã downsample) kèm thống kê mô tả (min/max/mean/std).
+   * (đã downsample) kèm thống kê mô tả (min/max/mean/std) TÍNH TRÊN TOÀN BỘ
+   * dữ liệu gốc (không phải trên phần đã downsample) + xu hướng đầu-cuối file.
    */
   function getSummaryForAI(selectedKeys, dataset, maxPoints = 200) {
     const { timestamps, series } = dataset;
@@ -202,6 +229,7 @@ const ChartModule = (() => {
     selectedKeys.forEach((key) => {
       const def = TAG_DEFINITIONS.find(t => t.key === key);
       const rawValues = series[key];
+      if (!rawValues) return;
       const paired = timestamps.map((t, i) => [t, rawValues[i]]).filter(p => Number.isFinite(p[1]));
       if (!paired.length) return;
 
@@ -221,6 +249,8 @@ const ChartModule = (() => {
           std: Number(Math.sqrt(variance).toFixed(3)),
           count: n,
         },
+        trend: computeTrend(values),
+        latest: Number(values[n - 1].toFixed(3)),
         sample: sampled.map(p => [new Date(p[0]).toISOString(), Number(p[1].toFixed(3))]),
       };
     });

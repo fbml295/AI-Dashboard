@@ -88,7 +88,21 @@ function setTagPanelEnabled(enabled) {
 function rerenderChart() {
   if (!state.dataset) return;
   ChartModule.render(state.selectedKeys, state.dataset, { normalize: state.normalize });
-  document.getElementById('btnAnalyzeAI').disabled = state.selectedKeys.length === 0;
+}
+
+/**
+ * Toàn bộ tag quá trình phục vụ AI phân tích — LOẠI TRỪ "Phân loại" (class1)
+ * và "Chỉ số chất lượng" (quality), vì 2 tag này là mục tiêu/tham chiếu,
+ * không phải căn cứ kỹ thuật để suy luận đóng/nhả đĩa.
+ */
+function getProcessTagKeys() {
+  return TAG_DEFINITIONS
+    .filter(t => t.type === 'numeric' && t.group !== 'Chất lượng')
+    .map(t => t.key);
+}
+
+function updateAnalyzeButtonState() {
+  document.getElementById('btnAnalyzeAI').disabled = !state.dataset;
 }
 
 /* --------------------------- KPI CARDS (Class1 / Quality) --------------------------- */
@@ -254,6 +268,7 @@ async function loadFile(file, options = {}) {
     document.getElementById('activeFileName').textContent = file.name;
     document.getElementById('activeFileRows').textContent = `${dataset.rowCount.toLocaleString('vi-VN')} dòng`;
     updateKpiCards(null);
+    updateAnalyzeButtonState();
 
     showToast(
       silent
@@ -277,8 +292,8 @@ async function handleAnalyzeAI() {
     document.getElementById('settingsModal').classList.add('is-open');
     return;
   }
-  if (!state.dataset || state.selectedKeys.length === 0) {
-    showToast('Chọn ít nhất 1 tín hiệu trước khi phân tích.', 'warn');
+  if (!state.dataset) {
+    showToast('Chưa có dữ liệu để phân tích. Vui lòng chọn 1 file trước.', 'warn');
     return;
   }
 
@@ -286,15 +301,21 @@ async function handleAnalyzeAI() {
   const resultContent = document.getElementById('aiResultContent');
   resultPanel.classList.add('is-open');
   resultContent.textContent = '';
-  setLoading(true, 'Gemini đang phân tích dữ liệu vận hành...');
+  setLoading(true, 'Gemini đang phân tích toàn bộ thông số vận hành và đề xuất đóng/nhả đĩa...');
 
   try {
-    const summary = ChartModule.getSummaryForAI(state.selectedKeys, state.dataset);
+    const processKeys = getProcessTagKeys(); // toàn bộ tag quá trình, KHÔNG phụ thuộc tag đang tick chọn trên chart
+    const referenceKeys = ['class1', 'quality'];
+
+    const processSummary = ChartModule.getSummaryForAI(processKeys, state.dataset, 120);
+    const referenceSummary = ChartModule.getSummaryForAI(referenceKeys, state.dataset, 100);
+
     const { timestamps } = state.dataset;
     const timeRangeLabel = timestamps.length
       ? `${new Date(timestamps[0]).toLocaleString('vi-VN')} → ${new Date(timestamps[timestamps.length - 1]).toLocaleString('vi-VN')}`
       : '';
-    const analysisText = await GeminiModule.analyze(summary, { timeRangeLabel });
+
+    const analysisText = await GeminiModule.analyzeOperational(processSummary, referenceSummary, { timeRangeLabel });
     resultContent.textContent = analysisText;
   } catch (err) {
     console.error(err);
@@ -338,6 +359,7 @@ function onAuthStatusChange({ signedIn }) {
     setTagPanelEnabled(false);
     ChartModule.renderEmpty();
     updateKpiCards(null);
+    updateAnalyzeButtonState();
     if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
   }
 }
