@@ -28,6 +28,44 @@ const CsvParserModule = (() => {
   }
 
   /**
+   * Chuẩn hoá 1 chuỗi giờ bất kỳ về "HH:mm:ss" (24h).
+   * Hỗ trợ: "14:30:00", "08:00", "8", "10:00:42 AM", "2:15 PM".
+   * Trả về null nếu không nhận diện được định dạng.
+   */
+  function normalizeTimeString(gioStr) {
+    if (!gioStr) return null;
+    const s = gioStr.trim();
+
+    // 12h có AM/PM: "10:00:42 AM", "2:15 PM", "12:00 AM"
+    const ampmMatch = s.match(/^(\d{1,2}):(\d{2})(?::(\d{2}))?\s*(AM|PM|am|pm)$/);
+    if (ampmMatch) {
+      let hh = parseInt(ampmMatch[1], 10);
+      const mm = ampmMatch[2];
+      const ss = ampmMatch[3] || '00';
+      const meridiem = ampmMatch[4].toUpperCase();
+      if (meridiem === 'AM') { if (hh === 12) hh = 0; }
+      else { if (hh !== 12) hh += 12; }
+      return `${String(hh).padStart(2, '0')}:${mm}:${ss}`;
+    }
+
+    // 24h đầy đủ: "14:30:00"
+    if (/^\d{1,2}:\d{1,2}:\d{1,2}$/.test(s)) {
+      const [h, m, sec] = s.split(':');
+      return `${h.padStart(2, '0')}:${m.padStart(2, '0')}:${sec.padStart(2, '0')}`;
+    }
+    // 24h chỉ giờ:phút: "08:00"
+    if (/^\d{1,2}:\d{1,2}$/.test(s)) {
+      const [h, m] = s.split(':');
+      return `${h.padStart(2, '0')}:${m.padStart(2, '0')}:00`;
+    }
+    // chỉ số giờ nguyên: "8"
+    if (/^\d{1,2}$/.test(s)) {
+      return `${s.padStart(2, '0')}:00:00`;
+    }
+    return null;
+  }
+
+  /**
    * Chuyển đổi Excel serial date (số ngày tính từ 1899-12-30) sang mốc thời
    * gian mili giây. Excel hay lưu ngày/giờ dưới dạng số này khi cột không
    * được định dạng tường minh là Date/Time lúc xuất ra CSV.
@@ -41,7 +79,7 @@ const CsvParserModule = (() => {
    * Ghép cột Ngày + Giờ thành timestamp (ms).
    * Hỗ trợ:
    *  - Chuỗi ngày: dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd, yyyy/mm/dd
-   *  - Chuỗi giờ: HH:mm:ss, HH:mm, hoặc chỉ số giờ nguyên (vd "14")
+   *  - Chuỗi giờ: HH:mm:ss (24h), HH:mm, chỉ số giờ, và 12h AM/PM (vd "10:00:42 AM")
    *  - Số serial kiểu Excel (khi cột Ngày/Giờ bị xuất ra dạng số thuần,
    *    thường gặp khi copy dữ liệu Excel không định dạng Date/Time sang CSV)
    */
@@ -65,11 +103,9 @@ const CsvParserModule = (() => {
         // Nếu Gio > 1 -> coi là số giờ (vd "14" = 14:00, "14.5" = 14:30)
         dayFraction = gioNum <= 1 ? gioNum : gioNum / 24;
       } else if (gioStr) {
-        const timeMatch = gioStr.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
-        if (timeMatch) {
-          const hh = parseInt(timeMatch[1], 10);
-          const mm = parseInt(timeMatch[2], 10);
-          const ss = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+        const normalizedTime = normalizeTimeString(gioStr);
+        if (normalizedTime) {
+          const [hh, mm, ss] = normalizedTime.split(':').map(Number);
           dayFraction = (hh * 3600 + mm * 60 + ss) / 86400;
         }
       }
@@ -89,20 +125,15 @@ const CsvParserModule = (() => {
       }
     }
 
-    const finalGioStr = gioStr || '00:00:00';
+    const normalizedTime = normalizeTimeString(gioStr) || '00:00:00';
 
     if (!isoDate) {
       // Fallback: để Date tự parse, có thể không chính xác 100% nhưng không chặn luồng
-      const fallback = new Date(`${ngayStr} ${finalGioStr}`);
+      const fallback = new Date(`${ngayStr} ${normalizedTime}`);
       return isNaN(fallback.getTime()) ? NaN : fallback.getTime();
     }
 
-    // Chuẩn hoá giờ về HH:mm:ss
-    let hh = finalGioStr;
-    if (/^\d{1,2}$/.test(finalGioStr)) hh = `${finalGioStr.padStart(2, '0')}:00:00`;
-    else if (/^\d{1,2}:\d{1,2}$/.test(finalGioStr)) hh = `${finalGioStr}:00`;
-
-    const dt = new Date(`${isoDate}T${hh}`);
+    const dt = new Date(`${isoDate}T${normalizedTime}`);
     return isNaN(dt.getTime()) ? NaN : dt.getTime();
   }
 
