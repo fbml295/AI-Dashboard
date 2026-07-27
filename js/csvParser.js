@@ -18,42 +18,89 @@
 
 const CsvParserModule = (() => {
   function normalizeHeader(h) {
-    return String(h || '').trim().toLowerCase().replace(/\s+/g, '');
+    return String(h || '')
+      .trim()
+      .toLowerCase()
+      .normalize('NFD')                    // tách chữ cái khỏi dấu (ví dụ: à -> a + dấu huyền)
+      .replace(/[\u0300-\u036f]/g, '')       // xoá các dấu (combining diacritical marks)
+      .replace(/đ/g, 'd')                    // 'đ' không tách được bằng NFD nên xử lý riêng
+      .replace(/\s+/g, '');
+  }
+
+  /**
+   * Chuyển đổi Excel serial date (số ngày tính từ 1899-12-30) sang mốc thời
+   * gian mili giây. Excel hay lưu ngày/giờ dưới dạng số này khi cột không
+   * được định dạng tường minh là Date/Time lúc xuất ra CSV.
+   * VD: 45678 -> một ngày cụ thể; 0.5 -> 12:00 trưa (nửa ngày).
+   */
+  function excelSerialToMs(serial) {
+    return Math.round((serial - 25569) * 86400 * 1000);
   }
 
   /**
    * Ghép cột Ngày + Giờ thành timestamp (ms).
-   * Hỗ trợ vài định dạng ngày phổ biến ở VN: dd/mm/yyyy, yyyy-mm-dd.
+   * Hỗ trợ:
+   *  - Chuỗi ngày: dd/mm/yyyy, dd-mm-yyyy, yyyy-mm-dd, yyyy/mm/dd
+   *  - Chuỗi giờ: HH:mm:ss, HH:mm, hoặc chỉ số giờ nguyên (vd "14")
+   *  - Số serial kiểu Excel (khi cột Ngày/Giờ bị xuất ra dạng số thuần,
+   *    thường gặp khi copy dữ liệu Excel không định dạng Date/Time sang CSV)
    */
   function parseTimestamp(ngay, gio) {
-    if (ngay == null) return NaN;
+    if (ngay == null || String(ngay).trim() === '') return NaN;
     const ngayStr = String(ngay).trim();
-    const gioStr = gio != null ? String(gio).trim() : '00:00:00';
+    const gioStr = gio != null ? String(gio).trim() : '';
 
+    const ngayIsPureNumber = /^\d+(\.\d+)?$/.test(ngayStr);
+    const gioIsPureNumber = gioStr !== '' && /^\d+(\.\d+)?$/.test(gioStr);
+
+    // --- Trường hợp Excel serial number (Ngay là số nguyên/thập phân thuần) ---
+    if (ngayIsPureNumber) {
+      const serial = parseFloat(ngayStr);
+      const dayPart = Math.floor(serial);
+      let dayFraction = serial - dayPart; // nếu Ngay tự chứa cả giờ (vd 45678.5)
+
+      if (gioIsPureNumber) {
+        const gioNum = parseFloat(gioStr);
+        // Nếu Gio <= 1 -> coi là phân số của ngày (kiểu Excel time serial: 0.5 = 12:00)
+        // Nếu Gio > 1 -> coi là số giờ (vd "14" = 14:00, "14.5" = 14:30)
+        dayFraction = gioNum <= 1 ? gioNum : gioNum / 24;
+      } else if (gioStr) {
+        const timeMatch = gioStr.match(/^(\d{1,2}):(\d{1,2})(?::(\d{1,2}))?$/);
+        if (timeMatch) {
+          const hh = parseInt(timeMatch[1], 10);
+          const mm = parseInt(timeMatch[2], 10);
+          const ss = timeMatch[3] ? parseInt(timeMatch[3], 10) : 0;
+          dayFraction = (hh * 3600 + mm * 60 + ss) / 86400;
+        }
+      }
+
+      return excelSerialToMs(dayPart) + Math.round(dayFraction * 86400 * 1000);
+    }
+
+    // --- Trường hợp chuỗi ngày dạng text ---
     let isoDate = null;
-
-    // yyyy-mm-dd hoặc yyyy/mm/dd
     let m = ngayStr.match(/^(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
     if (m) {
       isoDate = `${m[1]}-${m[2].padStart(2, '0')}-${m[3].padStart(2, '0')}`;
     } else {
-      // dd/mm/yyyy hoặc dd-mm-yyyy
-      m = ngayStr.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})/);
+      m = ngayStr.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
       if (m) {
         isoDate = `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}`;
       }
     }
 
+    const finalGioStr = gioStr || '00:00:00';
+
     if (!isoDate) {
       // Fallback: để Date tự parse, có thể không chính xác 100% nhưng không chặn luồng
-      const fallback = new Date(`${ngayStr} ${gioStr}`);
+      const fallback = new Date(`${ngayStr} ${finalGioStr}`);
       return isNaN(fallback.getTime()) ? NaN : fallback.getTime();
     }
 
     // Chuẩn hoá giờ về HH:mm:ss
-    let hh = gioStr;
-    if (/^\d{1,2}$/.test(gioStr)) hh = `${gioStr.padStart(2, '0')}:00:00`;
-    else if (/^\d{1,2}:\d{1,2}$/.test(gioStr)) hh = `${gioStr}:00`;
+    let hh = finalGioStr;
+    if (/^\d{1,2}$/.test(finalGioStr)) hh = `${finalGioStr.padStart(2, '0')}:00:00`;
+    else if (/^\d{1,2}:\d{1,2}$/.test(finalGioStr)) hh = `${finalGioStr}:00`;
 
     const dt = new Date(`${isoDate}T${hh}`);
     return isNaN(dt.getTime()) ? NaN : dt.getTime();
@@ -84,6 +131,16 @@ const CsvParserModule = (() => {
 
     // Sắp xếp theo thời gian tăng dần (dữ liệu SCADA thường đã sort sẵn, nhưng đề phòng)
     combined.sort((a, b) => a.ts - b.ts);
+
+    if (combined.length === 0 && rows.length > 0) {
+      const detectedHeaders = Object.keys(rows[0] || {});
+      console.error(
+        'Không có dòng nào parse được timestamp hợp lệ.\n' +
+        'Header phát hiện được (đã chuẩn hoá) trong file:', detectedHeaders, '\n' +
+        'Cần có ít nhất 2 cột chuẩn hoá thành "ngay" và "gio".\n' +
+        'Ví dụ dòng dữ liệu đầu tiên (raw):', rows[0]
+      );
+    }
 
     const timestamps = combined.map(e => e.ts);
     const series = {};
