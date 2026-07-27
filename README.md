@@ -1,4 +1,4 @@
-# Refiner AI — Industrial SCADA Trend Monitor
+# AI-Dashboard — Industrial SCADA Trend Monitor
 
 Dashboard giám sát dữ liệu vận hành refiner (nghiền bột giấy), 100% chạy client-side,
 host tĩnh trên GitHub Pages, không cần backend.
@@ -9,7 +9,7 @@ Mở `js/config.js` và điền 2 giá trị:
 
 ```js
 GOOGLE_CLIENT_ID: 'xxxxx.apps.googleusercontent.com',  // Từ Google Cloud Console
-DRIVE_FOLDER_ID: 'xxxxxxxxxxxxxxxxxxxxxxxxx',            // ID folder "refiner_AI" trên Drive
+DRIVE_FOLDER_ID: 'xxxxxxxxxxxxxxxxxxxxxxxxx',            // ID folder "AI-Dashboard" trên Drive
 ```
 
 Cách lấy `DRIVE_FOLDER_ID`: mở folder trên Google Drive, copy đoạn cuối URL:
@@ -35,7 +35,7 @@ Nhớ thêm `http://localhost:5500` vào **Authorized JavaScript origins** trong
 ```bash
 git init
 git add .
-git commit -m "Initial commit: Refiner AI dashboard"
+git commit -m "Initial commit: AI-Dashboard dashboard"
 git branch -M main
 git remote add origin https://github.com/<username>/<repo>.git
 git push -u origin main
@@ -66,7 +66,29 @@ fibermoisture, acacia, pine, mixwood, class1, quality
 - `Gio`: hỗ trợ `HH:mm:ss`, `HH:mm`, hoặc chỉ giờ nguyên (`14` → `14:00:00`).
 - Muốn đổi tên cột / thêm bớt tag: sửa mảng `TAG_DEFINITIONS` trong `js/config.js`.
 
-## 6. Giới hạn đã biết (do kiến trúc client-side)
+## 6. Ô KPI "Phân loại" & "Chỉ số chất lượng"
+
+Hai ô này nằm giữa thanh công cụ (giữa nút "Chuẩn hoá" và "Phân tích AI"):
+
+- **Phân loại (Class 1)**: hiển thị giá trị cột `class1`, đơn vị `%`.
+- **Chỉ số chất lượng**: hiển thị giá trị cột `quality` theo thang **0–10** (5 là đạt chuẩn,
+  0 là quá thô, 10 là quá mịn). Ngưỡng đánh giá (QUÁ THÔ / ĐẠT / QUÁ MỊN) cấu hình ở
+  `QUALITY_BANDS` trong `js/config.js`.
+- Mặc định hiển thị **giá trị dòng cuối cùng** trong file đang mở. Khi bạn di chuột lên
+  biểu đồ, 2 ô này tự động đổi sang giá trị tại đúng thời điểm đang hover; rời chuột khỏi
+  biểu đồ sẽ quay lại giá trị mới nhất.
+
+## 7. Tự động cập nhật dữ liệu từ Google Drive
+
+Vào **⚙ Cài đặt** → mục "Chu kỳ tự động cập nhật dữ liệu (phút)" để đặt chu kỳ (mặc định 5 phút,
+đặt `0` để tắt). Hệ thống chỉ tự tải lại khi:
+- Đang có người đăng nhập Google, **và**
+- Đang có 1 file được mở trên dashboard.
+
+Nếu không ai mở web / chưa đăng nhập, không có request nào được gửi đi (tiết kiệm quota Drive API).
+Giá trị chu kỳ lưu ở `localStorage`, áp dụng ngay không cần tải lại trang.
+
+## 8. Giới hạn đã biết (do kiến trúc client-side)
 
 - Token Google hết hạn sau ~1 giờ, refresh trang phải đăng nhập lại (không lưu refresh token
   ở client vì lý do bảo mật).
