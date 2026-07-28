@@ -1,26 +1,89 @@
-# AI-Dashboard — Industrial SCADA Trend Monitor
+# AI-Dashboard — Industrial SCADA Realtime Monitor
 
 Dashboard giám sát dữ liệu vận hành refiner (nghiền bột giấy), 100% chạy client-side,
-host tĩnh trên GitHub Pages, không cần backend.
+host tĩnh trên GitHub Pages, không cần backend. Dữ liệu đổ về **realtime** từ
+Firebase Realtime Database, do 1 gateway (script PowerShell) chạy trên máy tính tại
+xưởng liên tục đẩy lên từ file CSV cục bộ.
+
+## Kiến trúc tổng quan
+
+```
+[Máy đo/PLC] → MayNghien.csv → [Gateway PowerShell] → Firebase Realtime Database
+                                                              │
+                                              (Security Rules kiểm tra quyền)
+                                                              │
+                                                              ▼
+                                              [Web Dashboard - GitHub Pages]
+                                       (đăng nhập Google qua Firebase Auth,
+                                        chỉ tài khoản trong "allowedUsers" đọc được)
+```
 
 ## 1. Cấu hình trước khi deploy
 
-Mở `js/config.js` và điền 2 giá trị:
+Mở `js/config.js`, điền `FIREBASE_CONFIG` (lấy ở Firebase Console → Project settings →
+General → Your apps → Config) — đây là thông tin **public**, an toàn để commit lên repo public:
 
 ```js
-GOOGLE_CLIENT_ID: 'xxxxx.apps.googleusercontent.com',  // Từ Google Cloud Console
-DRIVE_FOLDER_ID: 'xxxxxxxxxxxxxxxxxxxxxxxxx',            // ID folder "AI-Dashboard" trên Drive
+FIREBASE_CONFIG: {
+  apiKey: "...",
+  authDomain: "...firebaseapp.com",
+  databaseURL: "https://...firebasedatabase.app",
+  projectId: "...",
+  storageBucket: "...",
+  messagingSenderId: "...",
+  appId: "...",
+},
+FIREBASE_DATA_PATH: 'scada_data',   // node gốc chứa dữ liệu trên Realtime Database
 ```
 
-Cách lấy `DRIVE_FOLDER_ID`: mở folder trên Google Drive, copy đoạn cuối URL:
-`https://drive.google.com/drive/folders/<ĐÂY_LÀ_FOLDER_ID>`
+⚠️ **KHÔNG BAO GIỜ** đưa "Database Secret" (chuỗi dài dùng trong gateway PowerShell) vào code
+web. Secret đó chỉ dùng trong script gateway chạy riêng trên máy tính tại xưởng.
 
-Client ID lấy theo hướng dẫn ở phần trao đổi trước (Google Cloud Console → OAuth Client ID,
-loại **Web application**, khai báo Authorized JavaScript origin đúng domain GitHub Pages của bạn).
+## 2. Thiết lập Firebase (làm 1 lần)
 
-## 2. Chạy thử local
+### 2.1 — Bật Google Sign-In
+Console → **Authentication** → **Sign-in method** → **Google** → **Enable**.
 
-Vì dùng `fetch` tới Google API, cần chạy qua HTTP server thật (không mở trực tiếp file://):
+### 2.2 — Security Rules (Console → Realtime Database → tab Rules)
+```json
+{
+  "rules": {
+    "allowedUsers": {
+      ".read": false,
+      ".write": false
+    },
+    "scada_data": {
+      ".read": "auth != null && root.child('allowedUsers').child(auth.token.email.replace('.', ',')).val() === true",
+      ".write": false
+    }
+  }
+}
+```
+`.write: false` chặn mọi ghi/sửa từ trình duyệt — việc ghi dữ liệu chỉ do gateway PowerShell
+đảm nhiệm (dùng Database Secret, secret này **bỏ qua** Security Rules theo thiết kế của Firebase
+nên vẫn ghi được dù rule chặn `.write` từ web).
+
+### 2.3 — Cấp quyền cho tài khoản Google
+Console → Realtime Database → tab Data → menu **⋮** → **Import JSON**:
+```json
+{ "allowedUsers": { "email_cua_ban@gmail,com": true } }
+```
+Lưu ý: dấu `.` trong email phải đổi thành `,` (Firebase không cho phép `.` trong key).
+Muốn thêm/bớt người dùng chỉ cần sửa node này trên Console, không cần sửa code/deploy lại.
+
+## 3. Gateway đẩy dữ liệu (chạy trên máy tính tại xưởng)
+
+Dùng script `gateway_clean.ps1` — cơ chế "Store and Forward": quét file CSV mỗi 5 giây
+(chỉnh được ở dòng `Start-Sleep -Seconds 5`), chỉ gửi phần dòng MỚI (dựa vào `bookmark.txt`),
+dùng Database Secret qua `?auth=` để ghi thẳng vào `scada_data` (secret này chỉ nằm trên máy
+tính tại xưởng, không bao giờ xuất hiện trong code web công khai).
+
+**Để chạy tự động, liên tục kể cả khi không ai đăng nhập Windows**: thiết lập qua
+**Task Scheduler** → Create Task → Trigger "At startup" → Action chạy
+`powershell.exe -WindowStyle Hidden -ExecutionPolicy Bypass -File "đường-dẫn\gateway_clean.ps1"`
+→ tab Settings bật "Restart on failure" để tự phục hồi nếu gateway bị lỗi.
+
+## 4. Chạy thử local & Deploy GitHub Pages
 
 ```bash
 cd industrial-dashboard
@@ -28,33 +91,27 @@ python3 -m http.server 5500
 # mở http://localhost:5500
 ```
 
-Nhớ thêm `http://localhost:5500` vào **Authorized JavaScript origins** trong OAuth Client ID.
-
-## 3. Deploy lên GitHub Pages
-
+Deploy:
 ```bash
-git init
-git add .
-git commit -m "Initial commit: AI-Dashboard dashboard"
+git init && git add . && git commit -m "Init"
 git branch -M main
 git remote add origin https://github.com/<username>/<repo>.git
 git push -u origin main
 ```
+Bật **Settings → Pages** → Source: branch `main`, `/ (root)`.
 
-Vào **Settings → Pages** của repo → Source: chọn branch `main`, thư mục `/ (root)`.
-Sau khi trang chạy tại `https://<username>.github.io/<repo>/`, quay lại Google Cloud Console
-thêm chính xác origin `https://<username>.github.io` vào Authorized JavaScript origins
-(GIS chỉ kiểm tra origin, không kiểm tra path `/repo/`).
+⚠️ Vào Firebase Console → Authentication → Settings → **Authorized domains** → thêm
+`<username>.github.io` (Firebase Auth cần domain được khai báo mới cho phép popup đăng nhập).
 
-## 4. Sử dụng Gemini API Key
+## 5. Sử dụng Gemini API Key
 
-Người vận hành tự vào https://aistudio.google.com/app/apikey tạo key miễn phí, dán vào
-nút **⚙ CÀI ĐẶT** trên dashboard. Key lưu ở `localStorage` trình duyệt đó — mỗi máy/mỗi
-người dùng cần tự nhập key riêng.
+Vào https://aistudio.google.com/app/apikey tạo key miễn phí, dán vào nút **⚙ CÀI ĐẶT**.
+Key lưu ở `localStorage` trình duyệt — mỗi máy/mỗi người dùng tự nhập key riêng.
 
-## 5. Cấu trúc dữ liệu CSV kỳ vọng
+## 6. Cấu trúc dữ liệu Firebase kỳ vọng (`scada_data`)
 
-Header (không phân biệt hoa/thường, khoảng trắng sẽ bị loại bỏ khi parse):
+Mỗi bản ghi con dưới `scada_data` là 1 object phẳng, field name giữ nguyên như CSV gốc
+(không phân biệt hoa/thường khi đọc):
 
 ```
 Ngay, Gio, Pkwh, A, plategap, vibration, acceleration, dsfspeed, dsfflow,
@@ -62,72 +119,47 @@ suppressure, digesterp, refinerp, presteamtemp, cookingtime, chipmoisture,
 fibermoisture, acacia, pine, mixwood, class1, quality
 ```
 
-- `Ngay`: hỗ trợ định dạng `dd/mm/yyyy`, `yyyy-mm-dd`.
-- `Gio`: hỗ trợ `HH:mm:ss`, `HH:mm`, hoặc chỉ giờ nguyên (`14` → `14:00:00`).
-- Muốn đổi tên cột / thêm bớt tag: sửa mảng `TAG_DEFINITIONS` trong `js/config.js`.
+- `Ngay`+`Gio` được ghép thành 1 timestamp; hỗ trợ `dd-mm-yyyy`, `yyyy-mm-dd`, giờ 24h
+  hoặc 12h AM/PM (`10:00:42 AM`).
+- **Key của mỗi bản ghi trên Firebase KHÔNG phải thời gian cảm biến** (là thời điểm gateway
+  ghi lên) — web luôn tự sắp xếp lại theo đúng `Ngay`+`Gio` thực tế, không dựa theo thứ tự key.
+- Muốn đổi tên cột/thêm bớt tag: sửa mảng `TAG_DEFINITIONS` trong `js/config.js`.
 
-## 6. 🔮 Dự đoán & Mô phỏng (mô hình tự học — tách biệt hoàn toàn với Gemini)
+## 7. 🔮 Dự đoán & Mô phỏng (mô hình tự học — tách biệt hoàn toàn với Gemini)
 
-Nút **"🔮 DỰ ĐOÁN"** (cạnh nút "PHÂN TÍCH AI") mở panel chứa 1 mô hình **hồi quy tuyến tính
-(Ridge Regression)** chạy 100% trong trình duyệt — không gọi API, không tốn phí, không gửi
-dữ liệu ra ngoài:
+Nút **"🔮 DỰ ĐOÁN"** mở panel chứa 1 mô hình **hồi quy tuyến tính (Ridge Regression)** chạy
+100% trong trình duyệt — không gọi API, không tốn phí:
 
-- **Tự động huấn luyện lại** từ toàn bộ dữ liệu mỗi khi bạn mở file mới hoặc khi auto-refresh
-  tải dữ liệu mới — đúng yêu cầu "mô hình cần liên tục học" vì dữ liệu vận hành thay đổi liên tục.
-- **Phần 1 — So sánh dự đoán vs thực tế**: đối chiếu Phân loại/Chất lượng model dự đoán so với
-  giá trị đo thật gần nhất, kèm độ tin cậy R² (0-100%, màu xanh/vàng/đỏ theo mức TỐT/TRUNG BÌNH/THẤP).
-- **Phần 2 — Mô phỏng what-if đa tag**: tick chọn 1 hoặc NHIỀU tag cùng lúc, nhập giá trị giả định,
-  mô hình tính ngay kết quả Phân loại/Chất lượng mới (các tag không chọn giữ nguyên giá trị mới nhất).
-- **Phần 3 — Khuyến nghị đóng/nhả đĩa**: tự động hiển thị ngay khi mở panel (mục tiêu mặc định =
-  Chất lượng 5.0, có thể đổi) — mô hình **giải ngược phương trình tuyến tính** ra chính xác giá trị
-  `plategap` cần thiết, kết luận rõ ĐÓNG ĐĨA / NHẢ ĐĨA / GIỮ NGUYÊN kèm số mm cụ thể.
+- **Tự động huấn luyện lại mỗi khi Firebase đẩy dữ liệu mới về** (không cần thao tác gì) —
+  đúng yêu cầu "mô hình liên tục học" vì dữ liệu vận hành thay đổi liên tục.
+- **Phần 1**: so sánh Phân loại/Chất lượng model dự đoán vs giá trị mới nhất, kèm độ tin cậy R².
+- **Phần 2**: mô phỏng what-if — tick chọn NHIỀU tag cùng lúc, xem kết quả dự đoán ngay.
+- **Phần 3**: tự động hiện khuyến nghị ĐÓNG ĐĨA/NHẢ ĐĨA/GIỮ NGUYÊN (mục tiêu mặc định
+  Chất lượng = 5.0, giải ngược phương trình ra chính xác giá trị `plategap` cần thiết).
 
-Yêu cầu tối thiểu **30 dòng dữ liệu hợp lệ** (đủ cả feature lẫn Phân loại/Chất lượng) để huấn luyện;
-ít hơn sẽ báo "chưa đủ dữ liệu" thay vì đưa ra kết quả không đáng tin cậy.
+Yêu cầu tối thiểu **30 bản ghi hợp lệ** để huấn luyện. Đây là mô hình thống kê tuyến tính đơn
+giản, hỗ trợ ra quyết định nhanh nhưng **không thay thế đánh giá kỹ thuật của kỹ sư vận hành**.
 
-⚠️ Đây là mô hình thống kê tuyến tính đơn giản (không phải deep learning), phù hợp để tham khảo
-xu hướng và ra quyết định nhanh, nhưng **không thay thế đánh giá kỹ thuật của kỹ sư vận hành**,
-đặc biệt khi ngoại suy ra ngoài phạm vi dữ liệu lịch sử (panel sẽ tự cảnh báo trường hợp này).
+## 8. Ô KPI "Phân loại" & "Chỉ số chất lượng"
 
-## 7. Ô KPI "Phân loại" & "Chỉ số chất lượng"
-
-Hai ô này nằm giữa thanh công cụ (giữa nút "Chuẩn hoá" và "Phân tích AI"):
-
-- **Phân loại (Class 1)**: hiển thị giá trị cột `class1`, đơn vị `%`.
-- **Chỉ số chất lượng**: hiển thị giá trị cột `quality` theo thang **0–10** (5 là đạt chuẩn,
-  0 là quá thô, 10 là quá mịn). Ngưỡng đánh giá (QUÁ THÔ / ĐẠT / QUÁ MỊN) cấu hình ở
-  `QUALITY_BANDS` trong `js/config.js`.
-- Mặc định hiển thị **giá trị dòng cuối cùng** trong file đang mở. Khi bạn di chuột lên
-  biểu đồ, 2 ô này tự động đổi sang giá trị tại đúng thời điểm đang hover; rời chuột khỏi
-  biểu đồ sẽ quay lại giá trị mới nhất.
-
-## 8. Tự động cập nhật dữ liệu từ Google Drive
-
-Vào **⚙ Cài đặt** → mục "Chu kỳ tự động cập nhật dữ liệu (phút)" để đặt chu kỳ (mặc định 5 phút,
-đặt `0` để tắt). Hệ thống chỉ tự tải lại khi:
-- Đang có người đăng nhập Google, **và**
-- Đang có 1 file được mở trên dashboard.
-
-Nếu không ai mở web / chưa đăng nhập, không có request nào được gửi đi (tiết kiệm quota Drive API).
-Giá trị chu kỳ lưu ở `localStorage`, áp dụng ngay không cần tải lại trang.
+Nằm giữa thanh công cụ. Mặc định hiển thị giá trị mới nhất; hover lên biểu đồ để xem giá trị
+tại đúng thời điểm đó. Ngưỡng đánh giá Chất lượng (QUÁ THÔ/ĐẠT/QUÁ MỊN) cấu hình ở
+`QUALITY_BANDS` trong `js/config.js`.
 
 ## 9. Lưu ý khi cập nhật file (tránh lỗi cache trình duyệt)
 
-Các thẻ `<script>`/`<link>` trong `index.html` có query string `?v=4` ở cuối (vd `js/app.js?v=4`).
-Đây là kỹ thuật **cache-busting**: mỗi khi bạn sửa bất kỳ file JS/CSS nào và deploy lại, hãy tăng
-số version này lên (`?v=4`, `?v=5`, ...) trong `index.html` để buộc trình duyệt tải bản mới thay vì
-dùng bản cache cũ. Nếu quên bước này, có thể xảy ra tình trạng HTML mới nhưng JS cũ (hoặc ngược lại)
-được tải cùng lúc, gây lỗi kiểu `Cannot set properties of null` do 2 bản không khớp ID phần tử.
+Các thẻ `<script>`/`<link>` trong `index.html` có query string `?v=5`. Mỗi khi sửa file
+JS/CSS và deploy lại, tăng số version này lên để buộc trình duyệt tải bản mới, tránh tình
+trạng HTML mới - JS cũ lẫn lộn gây lỗi `Cannot set properties of null`. Nếu nghi ngờ dính
+cache: **hard refresh** (`Ctrl/Cmd + Shift + R`).
 
-Cách nhanh nhất khi nghi ngờ dính cache: **hard refresh** (`Ctrl/Cmd + Shift + R`) hoặc mở bằng
-cửa sổ ẩn danh.
+## 10. Giới hạn đã biết
 
-## 10. Giới hạn đã biết (do kiến trúc client-side)
-
-- Token Google hết hạn sau ~1 giờ, refresh trang phải đăng nhập lại (không lưu refresh token
-  ở client vì lý do bảo mật).
-- Gemini API Key nằm trong localStorage — không phù hợp nếu máy dùng chung nhiều người
-  mà không tin tưởng lẫn nhau.
-- File Excel `.xlsx/.xls` chỉ đọc sheet đầu tiên.
-- OAuth Consent Screen ở trạng thái "Testing" giới hạn 100 tài khoản test user và Google
-  có thể yêu cầu đăng nhập lại sau 7 ngày — chuyển sang "Production" nếu cần dùng ổn định lâu dài.
+- Gemini API Key nằm trong `localStorage` — không phù hợp nếu máy dùng chung nhiều người
+  không tin tưởng lẫn nhau.
+- `scada_data` sẽ phình to vô hạn theo thời gian vì gateway liên tục ghi thêm (không tự xoá
+  dữ liệu cũ) — cần cân nhắc chiến lược lưu trữ lâu dài (archive sang nơi khác định kỳ) nếu
+  chạy nhiều tháng/năm, tránh vượt quota băng thông của gói Firebase đang dùng.
+- Vì "Phân loại"/"Chất lượng" chỉ được nhập sau khi đo phòng thí nghiệm (không phải mỗi dòng
+  cảm biến đều có), số bản ghi thực sự dùng để huấn luyện mô hình dự đoán có thể ít hơn nhiều
+  so với tổng số bản ghi cảm biến — theo dõi chỉ số R² trong panel Dự đoán để biết độ tin cậy.

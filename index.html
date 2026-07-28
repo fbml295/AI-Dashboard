@@ -8,16 +8,14 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=4" />
+<link rel="stylesheet" href="css/style.css?v=5" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
-<!-- PapaParse: parse CSV -->
-<script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
-<!-- SheetJS: parse Excel (.xlsx/.xls) nếu người dùng để file Excel trong Drive -->
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<!-- Google Identity Services: OAuth 2.0 client-side -->
-<script src="https://accounts.google.com/gsi/client" defer></script>
+<!-- Firebase (compat SDK - dùng namespace toàn cục `firebase`, không cần bundler) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
 </head>
 <body>
 
@@ -26,12 +24,12 @@
   <!-- ===================== HEADER / STATUS RAIL ===================== -->
   <header class="status-rail">
     <div class="brand">
-      AI-DASHBOARD <small>SCADA TREND MONITOR</small>
+      AI-DASHBOARD <small>SCADA REALTIME MONITOR</small>
     </div>
 
     <div class="status-group">
-      <div class="status-lamp" id="statusDrive" data-state="off">
-        <span class="led"></span><span class="status-label">DRIVE: CHƯA ĐĂNG NHẬP</span>
+      <div class="status-lamp" id="statusFirebase" data-state="off">
+        <span class="led"></span><span class="status-label">FIREBASE: CHƯA ĐĂNG NHẬP</span>
       </div>
       <div class="status-lamp" id="statusGemini" data-state="off">
         <span class="led"></span><span class="status-label">GEMINI: CHƯA CÓ API KEY</span>
@@ -51,17 +49,16 @@
   <!-- ===================== SIDEBAR ===================== -->
   <aside class="sidebar">
 
-    <section class="sidebar-section sidebar-section--files is-disabled" id="driveSection">
+    <section class="sidebar-section sidebar-section--stream is-disabled" id="streamSection">
       <div class="sidebar-section__header">
-        <span class="sidebar-section__title">Thư mục: AI-Dashboard</span>
-        <button class="btn btn--ghost btn--icon" id="btnRefreshFiles" title="Làm mới danh sách">⟳</button>
+        <span class="sidebar-section__title">Nguồn dữ liệu: Firebase Realtime</span>
       </div>
-      <div class="file-list" id="fileListContainer">
-        <div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "AI-Dashboard".</div>
+      <div class="stream-status" id="streamStatusContainer">
+        <div class="empty-hint">Đăng nhập Google để bắt đầu nhận dữ liệu realtime từ Firebase.</div>
       </div>
       <div class="file-meta-bar">
-        <span id="activeFileName">Chưa chọn file</span>
-        <span id="activeFileRows">—</span>
+        <span id="streamRowCount">0 bản ghi</span>
+        <span id="streamLastUpdate">Chưa có dữ liệu</span>
       </div>
     </section>
 
@@ -97,8 +94,7 @@
 
       <div class="toolbar-spacer"></div>
 
-      <button class="btn btn--ghost" id="btnOpenPrediction" disabled title="Mô hình tự học từ dữ liệu lịch sử để dự đoán Phân loại/Chất lượng và mô phỏng thay đổi thông số">🔮 DỰ ĐOÁN &amp; MÔ PHỎNG</button>
-      <button class="btn btn--ghost" id="btnOpenPrediction" disabled title="Huấn luyện mô hình từ dữ liệu lịch sử để dự đoán & mô phỏng thay đổi thông số">🔮 DỰ ĐOÁN</button>
+      <button class="btn btn--ghost" id="btnOpenPrediction" disabled title="Mô hình tự học từ dữ liệu lịch sử để dự đoán Phân loại/Chất lượng và mô phỏng thay đổi thông số">🔮 DỰ ĐOÁN</button>
       <button class="btn btn--primary" id="btnAnalyzeAI" disabled title="Phân tích toàn bộ thông số quá trình đối chiếu với Phân loại &amp; Chất lượng, đề xuất đóng/nhả đĩa nghiền">◆ PHÂN TÍCH AI</button>
     </div>
 
@@ -127,15 +123,6 @@
   <div class="ai-result-panel__body prediction-panel__body" id="predictionPanelBody"></div>
 </div>
 
-<!-- ===================== PREDICTION & SIMULATION DRAWER ===================== -->
-<div class="ai-result-panel prediction-panel" id="predictionPanel">
-  <div class="ai-result-panel__header">
-    <span class="ai-result-panel__title">🔮 Dự đoán &amp; Mô phỏng (mô hình tự học từ dữ liệu)</span>
-    <button class="btn btn--ghost btn--icon" id="btnClosePrediction">✕</button>
-  </div>
-  <div class="ai-result-panel__body prediction-panel__body" id="predictionPanelBody"></div>
-</div>
-
 <!-- ===================== SETTINGS MODAL ===================== -->
 <div class="modal-backdrop" id="settingsModal">
   <div class="modal">
@@ -153,17 +140,6 @@
         ⚠ Key được lưu trong <b>localStorage</b> của trình duyệt này — không mã hoá, không đồng bộ giữa các máy.
         Chỉ dùng key có giới hạn quota riêng (không dùng key billing chung của tổ chức) khi mở dashboard này trên máy dùng chung.
         Lấy key miễn phí tại <a class="help-link" href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener">Google AI Studio</a>.
-      </div>
-
-      <hr class="modal-divider" />
-
-      <label class="field-label">CHU KỲ TỰ ĐỘNG CẬP NHẬT DỮ LIỆU (PHÚT)</label>
-      <div class="input-row">
-        <input type="number" id="refreshIntervalInput" min="0" step="1" placeholder="vd: 5 — nhập 0 để tắt" />
-        <button class="btn btn--ghost" id="btnSaveRefreshInterval">Lưu</button>
-      </div>
-      <div class="help-hint">
-        Chỉ tự động tải lại khi đang đăng nhập Google và có 1 file đang mở. Nếu không có ai đăng nhập, hệ thống không gọi Drive/Gemini.
       </div>
     </div>
     <div class="modal__footer">
@@ -183,17 +159,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=4"></script>
-<script src="js/downsample.js?v=4"></script>
-<script src="js/auth.js?v=4"></script>
-<script src="js/drive.js?v=4"></script>
-<script src="js/csvParser.js?v=4"></script>
-<script src="js/chart.js?v=4"></script>
-<script src="js/model.js?v=4"></script>
-<script src="js/gemini.js?v=4"></script>
-<script src="js/settings.js?v=4"></script>
-<script src="js/statusIndicators.js?v=4"></script>
-<script src="js/app.js?v=4"></script>
+<script src="js/config.js?v=5"></script>
+<script src="js/downsample.js?v=5"></script>
+<script src="js/model.js?v=5"></script>
+<script src="js/firebaseAuth.js?v=5"></script>
+<script src="js/firebaseData.js?v=5"></script>
+<script src="js/chart.js?v=5"></script>
+<script src="js/gemini.js?v=5"></script>
+<script src="js/settings.js?v=5"></script>
+<script src="js/statusIndicators.js?v=5"></script>
+<script src="js/app.js?v=5"></script>
 
 </body>
 </html>
