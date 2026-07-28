@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css" />
+<link rel="stylesheet" href="css/style.css?v=4" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -97,6 +97,8 @@
 
       <div class="toolbar-spacer"></div>
 
+      <button class="btn btn--ghost" id="btnOpenPrediction" disabled title="Mô hình tự học từ dữ liệu lịch sử để dự đoán Phân loại/Chất lượng và mô phỏng thay đổi thông số">🔮 DỰ ĐOÁN &amp; MÔ PHỎNG</button>
+      <button class="btn btn--ghost" id="btnOpenPrediction" disabled title="Huấn luyện mô hình từ dữ liệu lịch sử để dự đoán & mô phỏng thay đổi thông số">🔮 DỰ ĐOÁN</button>
       <button class="btn btn--primary" id="btnAnalyzeAI" disabled title="Phân tích toàn bộ thông số quá trình đối chiếu với Phân loại &amp; Chất lượng, đề xuất đóng/nhả đĩa nghiền">◆ PHÂN TÍCH AI</button>
     </div>
 
@@ -114,6 +116,24 @@
     <button class="btn btn--ghost btn--icon" id="btnCloseAiResult">✕</button>
   </div>
   <div class="ai-result-panel__body" id="aiResultContent"></div>
+</div>
+
+<!-- ===================== PREDICTION & SIMULATION DRAWER (tách biệt, không dùng Gemini) ===================== -->
+<div class="ai-result-panel prediction-panel" id="predictionPanel">
+  <div class="ai-result-panel__header">
+    <span class="ai-result-panel__title">🔮 Dự đoán &amp; Mô phỏng (mô hình tự học từ dữ liệu)</span>
+    <button class="btn btn--ghost btn--icon" id="btnClosePrediction">✕</button>
+  </div>
+  <div class="ai-result-panel__body prediction-panel__body" id="predictionPanelBody"></div>
+</div>
+
+<!-- ===================== PREDICTION & SIMULATION DRAWER ===================== -->
+<div class="ai-result-panel prediction-panel" id="predictionPanel">
+  <div class="ai-result-panel__header">
+    <span class="ai-result-panel__title">🔮 Dự đoán &amp; Mô phỏng (mô hình tự học từ dữ liệu)</span>
+    <button class="btn btn--ghost btn--icon" id="btnClosePrediction">✕</button>
+  </div>
+  <div class="ai-result-panel__body prediction-panel__body" id="predictionPanelBody"></div>
 </div>
 
 <!-- ===================== SETTINGS MODAL ===================== -->
@@ -163,18 +183,17 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js"></script>
-<script src="js/downsample.js"></script>
-<script src="js/auth.js"></script>
-<script src="js/drive.js"></script>
-<script src="js/csvParser.js"></script>
-<script src="js/chart.js"></script>
-<script src="js/gemini.js"></script>
-<script src="js/settings.js"></script>
-<script src="js/statusIndicators.js"></script>
-<script src="js/app.js"></script>
-<!-- Nhúng thư viện Firebase v10 (Phiên bản module tối ưu cho Web tĩnh) -->
-<script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js"></script>
-<script type="module" src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js"></script>
+<script src="js/config.js?v=4"></script>
+<script src="js/downsample.js?v=4"></script>
+<script src="js/auth.js?v=4"></script>
+<script src="js/drive.js?v=4"></script>
+<script src="js/csvParser.js?v=4"></script>
+<script src="js/chart.js?v=4"></script>
+<script src="js/model.js?v=4"></script>
+<script src="js/gemini.js?v=4"></script>
+<script src="js/settings.js?v=4"></script>
+<script src="js/statusIndicators.js?v=4"></script>
+<script src="js/app.js?v=4"></script>
+
 </body>
 </html>
