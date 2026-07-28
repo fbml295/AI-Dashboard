@@ -66,7 +66,30 @@ fibermoisture, acacia, pine, mixwood, class1, quality
 - `Gio`: hỗ trợ `HH:mm:ss`, `HH:mm`, hoặc chỉ giờ nguyên (`14` → `14:00:00`).
 - Muốn đổi tên cột / thêm bớt tag: sửa mảng `TAG_DEFINITIONS` trong `js/config.js`.
 
-## 6. Ô KPI "Phân loại" & "Chỉ số chất lượng"
+## 6. 🔮 Dự đoán & Mô phỏng (mô hình tự học — tách biệt hoàn toàn với Gemini)
+
+Nút **"🔮 DỰ ĐOÁN"** (cạnh nút "PHÂN TÍCH AI") mở panel chứa 1 mô hình **hồi quy tuyến tính
+(Ridge Regression)** chạy 100% trong trình duyệt — không gọi API, không tốn phí, không gửi
+dữ liệu ra ngoài:
+
+- **Tự động huấn luyện lại** từ toàn bộ dữ liệu mỗi khi bạn mở file mới hoặc khi auto-refresh
+  tải dữ liệu mới — đúng yêu cầu "mô hình cần liên tục học" vì dữ liệu vận hành thay đổi liên tục.
+- **Phần 1 — So sánh dự đoán vs thực tế**: đối chiếu Phân loại/Chất lượng model dự đoán so với
+  giá trị đo thật gần nhất, kèm độ tin cậy R² (0-100%, màu xanh/vàng/đỏ theo mức TỐT/TRUNG BÌNH/THẤP).
+- **Phần 2 — Mô phỏng what-if đa tag**: tick chọn 1 hoặc NHIỀU tag cùng lúc, nhập giá trị giả định,
+  mô hình tính ngay kết quả Phân loại/Chất lượng mới (các tag không chọn giữ nguyên giá trị mới nhất).
+- **Phần 3 — Khuyến nghị đóng/nhả đĩa**: tự động hiển thị ngay khi mở panel (mục tiêu mặc định =
+  Chất lượng 5.0, có thể đổi) — mô hình **giải ngược phương trình tuyến tính** ra chính xác giá trị
+  `plategap` cần thiết, kết luận rõ ĐÓNG ĐĨA / NHẢ ĐĨA / GIỮ NGUYÊN kèm số mm cụ thể.
+
+Yêu cầu tối thiểu **30 dòng dữ liệu hợp lệ** (đủ cả feature lẫn Phân loại/Chất lượng) để huấn luyện;
+ít hơn sẽ báo "chưa đủ dữ liệu" thay vì đưa ra kết quả không đáng tin cậy.
+
+⚠️ Đây là mô hình thống kê tuyến tính đơn giản (không phải deep learning), phù hợp để tham khảo
+xu hướng và ra quyết định nhanh, nhưng **không thay thế đánh giá kỹ thuật của kỹ sư vận hành**,
+đặc biệt khi ngoại suy ra ngoài phạm vi dữ liệu lịch sử (panel sẽ tự cảnh báo trường hợp này).
+
+## 7. Ô KPI "Phân loại" & "Chỉ số chất lượng"
 
 Hai ô này nằm giữa thanh công cụ (giữa nút "Chuẩn hoá" và "Phân tích AI"):
 
@@ -78,7 +101,7 @@ Hai ô này nằm giữa thanh công cụ (giữa nút "Chuẩn hoá" và "Phân
   biểu đồ, 2 ô này tự động đổi sang giá trị tại đúng thời điểm đang hover; rời chuột khỏi
   biểu đồ sẽ quay lại giá trị mới nhất.
 
-## 7. Tự động cập nhật dữ liệu từ Google Drive
+## 8. Tự động cập nhật dữ liệu từ Google Drive
 
 Vào **⚙ Cài đặt** → mục "Chu kỳ tự động cập nhật dữ liệu (phút)" để đặt chu kỳ (mặc định 5 phút,
 đặt `0` để tắt). Hệ thống chỉ tự tải lại khi:
@@ -88,7 +111,18 @@ Vào **⚙ Cài đặt** → mục "Chu kỳ tự động cập nhật dữ li�
 Nếu không ai mở web / chưa đăng nhập, không có request nào được gửi đi (tiết kiệm quota Drive API).
 Giá trị chu kỳ lưu ở `localStorage`, áp dụng ngay không cần tải lại trang.
 
-## 8. Giới hạn đã biết (do kiến trúc client-side)
+## 9. Lưu ý khi cập nhật file (tránh lỗi cache trình duyệt)
+
+Các thẻ `<script>`/`<link>` trong `index.html` có query string `?v=4` ở cuối (vd `js/app.js?v=4`).
+Đây là kỹ thuật **cache-busting**: mỗi khi bạn sửa bất kỳ file JS/CSS nào và deploy lại, hãy tăng
+số version này lên (`?v=4`, `?v=5`, ...) trong `index.html` để buộc trình duyệt tải bản mới thay vì
+dùng bản cache cũ. Nếu quên bước này, có thể xảy ra tình trạng HTML mới nhưng JS cũ (hoặc ngược lại)
+được tải cùng lúc, gây lỗi kiểu `Cannot set properties of null` do 2 bản không khớp ID phần tử.
+
+Cách nhanh nhất khi nghi ngờ dính cache: **hard refresh** (`Ctrl/Cmd + Shift + R`) hoặc mở bằng
+cửa sổ ẩn danh.
+
+## 10. Giới hạn đã biết (do kiến trúc client-side)
 
 - Token Google hết hạn sau ~1 giờ, refresh trang phải đăng nhập lại (không lưu refresh token
   ở client vì lý do bảo mật).
