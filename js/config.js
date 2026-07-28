@@ -7,41 +7,37 @@
  */
 
 const APP_CONFIG = {
-  // Lấy từ Google Cloud Console > APIs & Services > Credentials > OAuth Client ID
-  // Đây là Client ID public, KHÔNG phải Client Secret -> an toàn để commit lên repo public.
-  GOOGLE_CLIENT_ID: '468592081191-tm93okutphcafti4ilee8m1r5u2lp2jj.apps.googleusercontent.com',
+  // Web App Config của Firebase - đây là thông tin PUBLIC (khác Database Secret),
+  // an toàn để commit lên repo public. Bảo mật thực sự nằm ở Security Rules
+  // trên Firebase Console, không nằm ở việc giấu các giá trị này.
+  FIREBASE_CONFIG: {
+    apiKey: "AIzaSyBfdxDxof0ZcVCXuelGnQBjdkGPiKcG_-E",
+    authDomain: "ai-dashboard-9e77e.firebaseapp.com",
+    databaseURL: "https://ai-dashboard-9e77e-default-rtdb.asia-southeast1.firebasedatabase.app",
+    projectId: "ai-dashboard-9e77e",
+    storageBucket: "ai-dashboard-9e77e.firebasestorage.app",
+    messagingSenderId: "430202775063",
+    appId: "1:430202775063:web:e04a2dc043e5bea5c21e52",
+  },
 
-  // ID của folder Google Drive "AI-Dashboard" đã chia sẻ.
-  // Cách lấy: mở folder trên Drive -> copy đoạn cuối URL:
-  // https://drive.google.com/drive/folders/<FOLDER_ID_NAM_O_DAY>
-  DRIVE_FOLDER_ID: '14XsG0Ke6-ayyZxshVEF790S92rPEBkIh',
-
-  // Tên folder hiển thị trên UI (chỉ mang tính hiển thị, không ảnh hưởng logic gọi API)
-  DRIVE_FOLDER_DISPLAY_NAME: 'AI-Dashboard',
-
-  // Quyền yêu cầu: chỉ đọc, không sửa/xoá file trên Drive của người dùng.
-  DRIVE_SCOPE: 'https://www.googleapis.com/auth/drive.readonly',
+  // Node gốc trên Realtime Database chứa dữ liệu SCADA (do gateway PowerShell ghi vào)
+  FIREBASE_DATA_PATH: 'scada_data',
 
   // Model Gemini dùng cho phân tích. Có thể đổi sang bản khác nếu Google cập nhật.
-  GEMINI_MODEL: 'gemini-3-flash-preview',
+  GEMINI_MODEL: 'gemini-2.0-flash',
 
   // Ngưỡng số điểm dữ liệu / series trước khi kích hoạt LTTB downsampling.
   DOWNSAMPLE_THRESHOLD: 2000,
-
-  // Chu kỳ tự động tải lại dữ liệu mặc định (phút). 0 = tắt.
-  // Người dùng có thể đổi giá trị này trong Cài đặt, lưu ở localStorage.
-  DEFAULT_REFRESH_INTERVAL_MIN: 5,
 
   // Ngưỡng đánh giá chỉ số chất lượng (thang 0-10, 5 là đạt chuẩn):
   //   < LOW  -> "QUÁ THÔ"
   //   > HIGH -> "QUÁ MỊN"
   //   còn lại -> "ĐẠT"
-  QUALITY_BANDS: { low: 3, high: 7 },
+  QUALITY_BANDS: { low: 4, high: 6 },
 
   // Key lưu trong localStorage
   STORAGE_KEYS: {
     GEMINI_API_KEY: 'refinerAI_geminiApiKey',
-    REFRESH_INTERVAL_MIN: 'refinerAI_refreshIntervalMin',
   },
 };
 

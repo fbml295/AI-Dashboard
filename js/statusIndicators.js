@@ -2,7 +2,7 @@
  * statusIndicators.js
  * -----------------------------------------------------------------------
  * Quản lý 3 đèn trạng thái trên thanh header, giống bảng LED trạng thái
- * trên tủ điều khiển SCADA thật: Drive / Gemini / Network.
+ * trên tủ điều khiển SCADA thật: Firebase / Gemini / Network.
  */
 
 const StatusIndicatorsModule = (() => {
@@ -14,8 +14,18 @@ const StatusIndicatorsModule = (() => {
     if (labelEl && label) labelEl.textContent = label;
   }
 
-  function setDriveStatus(signedIn) {
-    setIndicator('statusDrive', signedIn ? 'ok' : 'off', signedIn ? 'DRIVE: ĐÃ KẾT NỐI' : 'DRIVE: CHƯA ĐĂNG NHẬP');
+  /**
+   * state: 'signedOut' | 'connecting' | 'connected' | 'denied'
+   */
+  function setFirebaseStatus(state) {
+    const map = {
+      signedOut:  { ledState: 'off',  label: 'FIREBASE: CHƯA ĐĂNG NHẬP' },
+      connecting: { ledState: 'warn', label: 'FIREBASE: ĐANG KẾT NỐI...' },
+      connected:  { ledState: 'ok',   label: 'FIREBASE: REALTIME' },
+      denied:     { ledState: 'off',  label: 'FIREBASE: KHÔNG CÓ QUYỀN' },
+    };
+    const s = map[state] || map.signedOut;
+    setIndicator('statusFirebase', s.ledState, s.label);
   }
 
   function setGeminiStatus(hasKey) {
@@ -46,7 +56,7 @@ const StatusIndicatorsModule = (() => {
     setInterval(tick, 1000);
   }
 
-  return { setDriveStatus, setGeminiStatus, setNetworkStatus, initNetworkWatcher, initClock };
+  return { setFirebaseStatus, setGeminiStatus, setNetworkStatus, initNetworkWatcher, initClock };
 })();
 
 window.StatusIndicatorsModule = StatusIndicatorsModule;

@@ -1,16 +1,15 @@
 /**
  * app.js
  * -----------------------------------------------------------------------
- * Điểm khởi động ứng dụng: nối các module (auth, drive, parser, chart,
- * gemini, settings, status) với DOM. Không chứa logic nghiệp vụ phức tạp -
- * chỉ điều phối (orchestration).
+ * Điểm khởi động ứng dụng: nối các module (firebaseAuth, firebaseData,
+ * chart, model, gemini, settings, status) với DOM. Không chứa logic
+ * nghiệp vụ phức tạp - chỉ điều phối (orchestration).
  */
 
 let state = {
-  dataset: null,        // { timestamps, series, rowCount }
-  selectedKeys: [],      // các tag numeric đang bật
+  dataset: null,        // { timestamps, series, rowCount } - cập nhật realtime từ Firebase
+  selectedKeys: [],      // các tag numeric đang bật trên chart
   normalize: false,
-  currentFile: null,
   models: null,          // { class1: {...}, quality: {...} } - mô hình hồi quy đã huấn luyện
 };
 
@@ -110,8 +109,8 @@ function updateAnalyzeButtonState() {
 
 /**
  * Huấn luyện lại 2 mô hình (Phân loại, Chất lượng) từ TOÀN BỘ dữ liệu hiện có
- * trong state.dataset. Được gọi lại mỗi khi file được (tự động) tải mới, nên
- * mô hình luôn "học" theo dữ liệu mới nhất — đúng yêu cầu tự học liên tục.
+ * trong state.dataset. Được gọi lại MỖI KHI Firebase đẩy dữ liệu mới về, nên
+ * mô hình luôn "học" theo dữ liệu mới nhất - đúng yêu cầu tự học liên tục.
  */
 function trainModelsForDataset() {
   const btn = document.getElementById('btnOpenPrediction');
@@ -250,7 +249,7 @@ function renderPredictionPanel() {
         <span class="pred-r2--${r2Class(state.models.class1.r2)}">${(state.models.class1.r2 * 100).toFixed(0)}% (${r2Label(state.models.class1.r2)})</span>,
         Chất lượng:
         <span class="pred-r2--${r2Class(state.models.quality.r2)}">${(state.models.quality.r2 * 100).toFixed(0)}% (${r2Label(state.models.quality.r2)})</span>
-        <span class="pred-reliability__n">— học từ ${state.models.quality.n.toLocaleString('vi-VN')} dòng dữ liệu</span>
+        <span class="pred-reliability__n">— học từ ${state.models.quality.n.toLocaleString('vi-VN')} bản ghi</span>
       </div>
       <table class="pred-table">
         <tr><th></th><th>Thực tế (mới nhất)</th><th>Mô hình dự đoán</th></tr>
@@ -363,7 +362,7 @@ function getQualityBand(value) {
 
 /**
  * Cập nhật 2 ô KPI "Phân loại" và "Chất lượng".
- * ts = null  -> hiển thị giá trị dòng dữ liệu MỚI NHẤT trong file đang mở.
+ * ts = null  -> hiển thị giá trị dòng dữ liệu MỚI NHẤT hiện có.
  * ts = số ms -> hiển thị giá trị tại điểm gần nhất với thời điểm đang hover trên chart.
  */
 function updateKpiCards(ts) {
@@ -399,119 +398,59 @@ function updateKpiCards(ts) {
   }
 }
 
-/* --------------------------- AUTO-REFRESH (chu kỳ tự tải lại từ Drive) --------------------------- */
-
-let autoRefreshTimer = null;
-
-function getRefreshIntervalMinutes() {
-  const raw = localStorage.getItem(APP_CONFIG.STORAGE_KEYS.REFRESH_INTERVAL_MIN);
-  const parsed = raw == null ? APP_CONFIG.DEFAULT_REFRESH_INTERVAL_MIN : parseInt(raw, 10);
-  return Number.isFinite(parsed) && parsed >= 0 ? parsed : APP_CONFIG.DEFAULT_REFRESH_INTERVAL_MIN;
-}
+/* --------------------------- FIREBASE REALTIME DATA --------------------------- */
 
 /**
- * (Re)khởi động bộ đếm tự động tải lại dữ liệu.
- * Điều kiện chạy: có người đang đăng nhập Google VÀ đang có 1 file được mở.
- * Nếu không thoả, timer sẽ tự bỏ qua ở mỗi lần tick (không gọi API tốn quota).
+ * Được FirebaseDataModule gọi lại MỖI KHI có dữ liệu mới (hoặc lỗi quyền truy cập).
+ * Đây là điểm thay thế hoàn toàn cơ chế "chọn file + auto-refresh theo chu kỳ" cũ:
+ * không còn polling, Firebase tự đẩy dữ liệu về ngay khi gateway ghi thêm bản ghi.
  */
-function scheduleAutoRefresh() {
-  if (autoRefreshTimer) {
-    clearInterval(autoRefreshTimer);
-    autoRefreshTimer = null;
-  }
-  const minutes = getRefreshIntervalMinutes();
-  if (minutes <= 0) return;
+function handleFirebaseUpdate({ dataset, error }) {
+  if (error) {
+    console.error(error);
+    const isPermissionDenied = error.code === 'PERMISSION_DENIED' || /permission/i.test(error.message || '');
+    StatusIndicatorsModule.setFirebaseStatus(isPermissionDenied ? 'denied' : 'signedOut');
 
-  autoRefreshTimer = setInterval(async () => {
-    if (!AuthModule.isSignedIn() || !state.currentFile) return; // không ai dùng -> bỏ qua, không tốn quota
-    await loadFile(state.currentFile, { silent: true });
-  }, minutes * 60 * 1000);
-}
-
-/* --------------------------- FILE LIST (DRIVE) --------------------------- */
-
-async function refreshFileList() {
-  const listEl = document.getElementById('fileListContainer');
-  if (!listEl) {
-    console.error('Không tìm thấy #fileListContainer trong DOM. Có thể index.html đang là bản cũ (cache) không khớp với app.js. Hãy hard-refresh (Ctrl/Cmd+Shift+R).');
-    showToast('Lỗi giao diện: thiếu phần tử fileListContainer. Thử hard-refresh trang (Ctrl/Cmd+Shift+R).', 'error');
-    return;
-  }
-  listEl.innerHTML = '<div class="empty-hint">Đang tải danh sách file...</div>';
-  try {
-    const files = await DriveModule.listFilesInFolder();
-    if (!files.length) {
-      listEl.innerHTML = '<div class="empty-hint">Không tìm thấy file CSV/Excel nào trong folder "AI-Dashboard".</div>';
-      return;
+    const containerEl = document.getElementById('streamStatusContainer');
+    if (containerEl) {
+      containerEl.innerHTML = isPermissionDenied
+        ? '<div class="empty-hint empty-hint--error">🚫 Tài khoản này CHƯA được cấp quyền xem dữ liệu. Liên hệ quản trị viên để thêm email vào danh sách cho phép trên Firebase.</div>'
+        : `<div class="empty-hint empty-hint--error">Lỗi kết nối Firebase: ${error.message || error}</div>`;
     }
-    listEl.innerHTML = '';
-    files.forEach((file) => {
-      const item = document.createElement('button');
-      item.className = 'file-item';
-      item.type = 'button';
-      const sizeKb = file.size ? (file.size / 1024).toFixed(1) + ' KB' : '';
-      item.innerHTML = `
-        <div class="file-item__name">${file.name}</div>
-        <div class="file-item__meta">${new Date(file.modifiedTime).toLocaleString('vi-VN')} · ${sizeKb}</div>
-      `;
-      item.addEventListener('click', () => loadFile(file));
-      listEl.appendChild(item);
-    });
-  } catch (err) {
-    console.error(err);
-    listEl.innerHTML = `<div class="empty-hint empty-hint--error">Lỗi tải danh sách file: ${err.message}</div>`;
-    showToast('Không thể tải danh sách file từ Drive.', 'error');
-  }
-}
-
-/**
- * options.silent = true  -> dùng cho auto-refresh: không reset tag đang chọn,
- * không hiện overlay toàn màn hình (chỉ toast nhỏ), giữ nguyên trải nghiệm
- * đang xem của người dùng.
- */
-async function loadFile(file, options = {}) {
-  const silent = !!options.silent;
-  if (!silent) setLoading(true, `Đang tải "${file.name}"...`);
-
-  try {
-    const content = await DriveModule.downloadFileContent(file);
-    if (!silent) setLoading(true, 'Đang phân tích dữ liệu CSV/Excel...');
-    const dataset = await CsvParserModule.parseFile(content);
-
-    if (!dataset.rowCount) {
-      throw new Error('File không có dòng dữ liệu hợp lệ (kiểm tra lại cột Ngày/Giờ).');
-    }
-
-    state.dataset = dataset;
-    state.currentFile = file;
-
-    if (!silent) {
-      state.selectedKeys = [];
-      document.querySelectorAll('.tag-checkbox').forEach(cb => { cb.checked = false; });
-      setTagPanelEnabled(true);
-      ChartModule.renderEmpty();
-    } else {
-      // Giữ nguyên tag đang chọn, chỉ vẽ lại với dữ liệu mới
-      rerenderChart();
-    }
-
-    document.getElementById('activeFileName').textContent = file.name;
-    document.getElementById('activeFileRows').textContent = `${dataset.rowCount.toLocaleString('vi-VN')} dòng`;
-    updateKpiCards(null);
-    updateAnalyzeButtonState();
-    trainModelsForDataset();
 
     showToast(
-      silent
-        ? `Đã tự động cập nhật "${file.name}" - ${dataset.rowCount.toLocaleString('vi-VN')} dòng.`
-        : `Đã tải "${file.name}" - ${dataset.rowCount.toLocaleString('vi-VN')} dòng dữ liệu.`,
-      'success'
+      isPermissionDenied
+        ? 'Tài khoản của bạn chưa được cấp quyền truy cập dữ liệu.'
+        : `Lỗi kết nối Firebase: ${error.message || error}`,
+      'error'
     );
-  } catch (err) {
-    console.error(err);
-    showToast(`Lỗi đọc file: ${err.message}`, 'error');
-  } finally {
-    if (!silent) setLoading(false);
+    return;
+  }
+
+  const isFirstLoad = !state.dataset;
+
+  StatusIndicatorsModule.setFirebaseStatus('connected');
+
+  state.dataset = dataset;
+  setTagPanelEnabled(true);
+  rerenderChart();
+  updateKpiCards(null);
+  updateAnalyzeButtonState();
+  trainModelsForDataset();
+
+  document.getElementById('streamRowCount').textContent = `${dataset.rowCount.toLocaleString('vi-VN')} bản ghi`;
+  document.getElementById('streamLastUpdate').textContent = `Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+  document.getElementById('streamSection').classList.remove('is-disabled');
+
+  const containerEl = document.getElementById('streamStatusContainer');
+  if (containerEl) {
+    containerEl.innerHTML = dataset.rowCount
+      ? '<div class="empty-hint">✅ Đang lắng nghe dữ liệu realtime từ Firebase.</div>'
+      : '<div class="empty-hint">Đã kết nối nhưng "scada_data" hiện chưa có bản ghi nào.</div>';
+  }
+
+  if (isFirstLoad && dataset.rowCount > 0) {
+    showToast(`Đã kết nối Firebase - nhận ${dataset.rowCount.toLocaleString('vi-VN')} bản ghi.`, 'success');
   }
 }
 
@@ -524,7 +463,7 @@ async function handleAnalyzeAI() {
     return;
   }
   if (!state.dataset) {
-    showToast('Chưa có dữ liệu để phân tích. Vui lòng chọn 1 file trước.', 'warn');
+    showToast('Chưa có dữ liệu từ Firebase. Vui lòng đăng nhập và đợi dữ liệu realtime.', 'warn');
     return;
   }
 
@@ -561,9 +500,8 @@ async function handleAnalyzeAI() {
 /* --------------------------- BOOTSTRAP --------------------------- */
 
 function wireUiEvents() {
-  document.getElementById('btnSignIn').addEventListener('click', () => AuthModule.signIn());
-  document.getElementById('btnSignOut').addEventListener('click', () => AuthModule.signOut());
-  document.getElementById('btnRefreshFiles').addEventListener('click', refreshFileList);
+  document.getElementById('btnSignIn').addEventListener('click', () => FirebaseAuthModule.signIn());
+  document.getElementById('btnSignOut').addEventListener('click', () => FirebaseAuthModule.signOut());
   document.getElementById('btnAnalyzeAI').addEventListener('click', handleAnalyzeAI);
   document.getElementById('btnCloseAiResult').addEventListener('click', () => {
     document.getElementById('aiResultPanel').classList.remove('is-open');
@@ -582,22 +520,25 @@ function wireUiEvents() {
   });
 }
 
-function onAuthStatusChange({ signedIn }) {
-  StatusIndicatorsModule.setDriveStatus(signedIn);
+function onFirebaseAuthStatusChange({ signedIn }) {
   document.getElementById('btnSignIn').classList.toggle('is-hidden', signedIn);
   document.getElementById('btnSignOut').classList.toggle('is-hidden', !signedIn);
-  document.getElementById('driveSection').classList.toggle('is-disabled', !signedIn);
 
   if (signedIn) {
-    refreshFileList();
-    scheduleAutoRefresh();
+    StatusIndicatorsModule.setFirebaseStatus('connecting');
+    document.getElementById('streamSection').classList.remove('is-disabled');
+    FirebaseDataModule.listen(handleFirebaseUpdate);
   } else {
-    const listEl = document.getElementById('fileListContainer');
-    if (listEl) {
-      listEl.innerHTML = '<div class="empty-hint">Đăng nhập Google để xem danh sách file trong folder "AI-Dashboard".</div>';
-    }
+    FirebaseDataModule.stop();
+    StatusIndicatorsModule.setFirebaseStatus('signedOut');
+
+    document.getElementById('streamSection').classList.add('is-disabled');
+    document.getElementById('streamStatusContainer').innerHTML =
+      '<div class="empty-hint">Đăng nhập Google để bắt đầu nhận dữ liệu realtime từ Firebase.</div>';
+    document.getElementById('streamRowCount').textContent = '0 bản ghi';
+    document.getElementById('streamLastUpdate').textContent = 'Chưa có dữ liệu';
+
     state.dataset = null;
-    state.currentFile = null;
     state.models = null;
     setTagPanelEnabled(false);
     ChartModule.renderEmpty();
@@ -605,27 +546,8 @@ function onAuthStatusChange({ signedIn }) {
     updateAnalyzeButtonState();
     document.getElementById('btnOpenPrediction').disabled = true;
     document.getElementById('predictionPanel').classList.remove('is-open');
-    if (autoRefreshTimer) { clearInterval(autoRefreshTimer); autoRefreshTimer = null; }
+    document.getElementById('aiResultPanel').classList.remove('is-open');
   }
-}
-
-/**
- * Thư viện Google Identity Services (accounts.google.com/gsi/client) đôi khi
- * tải chậm hơn app.js do phụ thuộc mạng. Hàm này đợi cho tới khi window.google
- * sẵn sàng trước khi khởi tạo AuthModule, tránh lỗi "google is not defined"
- * xảy ra âm thầm (không hiển thị gì cho người dùng, chỉ thấy trong Console).
- */
-function waitForGoogleIdentityServices(callback, attemptsLeft = 50) {
-  if (window.google && window.google.accounts && window.google.accounts.oauth2) {
-    callback();
-    return;
-  }
-  if (attemptsLeft <= 0) {
-    showToast('Không thể tải thư viện đăng nhập Google. Kiểm tra kết nối mạng và tải lại trang.', 'error');
-    console.error('Google Identity Services (gsi/client) không tải được sau nhiều lần thử.');
-    return;
-  }
-  setTimeout(() => waitForGoogleIdentityServices(callback, attemptsLeft - 1), 100);
 }
 
 window.addEventListener('DOMContentLoaded', () => {
@@ -636,13 +558,11 @@ window.addEventListener('DOMContentLoaded', () => {
   StatusIndicatorsModule.initClock();
   StatusIndicatorsModule.initNetworkWatcher();
   StatusIndicatorsModule.setGeminiStatus(GeminiModule.hasApiKey());
+  StatusIndicatorsModule.setFirebaseStatus('signedOut');
 
   SettingsModule.init((hasKey) => StatusIndicatorsModule.setGeminiStatus(hasKey));
 
   ChartModule.init('mainChart', (ts) => updateKpiCards(ts));
 
-  StatusIndicatorsModule.setDriveStatus(false);
-  waitForGoogleIdentityServices(() => {
-    AuthModule.init(onAuthStatusChange);
-  });
+  FirebaseAuthModule.init(onFirebaseAuthStatusChange);
 });
