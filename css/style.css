@@ -94,7 +94,7 @@ button {
 }
 .brand__sub {
   font-family: var(--font-mono);
-  color: var(--text-faint);
+  color: var(--text-dim);
   font-weight: 400;
   font-size: 0.6rem;
   letter-spacing: 0.05em;
@@ -227,6 +227,18 @@ button {
   letter-spacing: 0.08em;
   color: var(--text-dim);
   text-transform: uppercase;
+}
+
+.sidebar-section__header--stream {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 3px;
+}
+.sidebar-section__meta {
+  font-family: var(--font-mono);
+  font-size: 0.68rem;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
 }
 
 .sidebar-section.is-disabled { opacity: 0.5; pointer-events: none; }
@@ -409,7 +421,7 @@ button {
   font-family: var(--font-mono);
   font-size: 0.66rem;
   letter-spacing: 0.06em;
-  color: var(--text-faint);
+  color: var(--text-dim);
 }
 
 .kpi-card__value {
@@ -439,6 +451,18 @@ button {
   white-space: normal;
   font-size: 0.8929rem;
 }
+.prediction-update-banner {
+  display: none;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 16px;
+  background: rgba(255,179,0,0.1);
+  border-bottom: 1px solid rgba(255,179,0,0.3);
+  font-size: 0.72rem;
+  color: var(--accent-amber);
+}
+.prediction-update-banner.is-visible { display: flex; }
 
 .pred-section {
   padding-bottom: 18px;
@@ -880,8 +904,6 @@ button {
 /* =========================================================================
    PREDICTION & SIMULATION PANEL (mô hình tự học, tách biệt Gemini)
    ========================================================================= */
-.prediction-panel { width: 480px; }
-.prediction-panel__body { white-space: normal; }
 
 .pred-section {
   margin-bottom: 22px;
