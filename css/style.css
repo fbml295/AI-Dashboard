@@ -27,9 +27,9 @@
 * { box-sizing: border-box; }
 
 html {
-  /* Font-size gốc co giãn mượt theo bề rộng màn hình: tối thiểu 13px (màn nhỏ),
-     tối đa 15.5px (màn lớn) - toàn bộ chữ trong web dùng rem nên sẽ tự co giãn theo. */
-  font-size: clamp(13px, 0.45vw + 11.5px, 15.5px);
+  /* Font-size gốc co giãn mượt theo bề rộng màn hình - đã giảm để ưu tiên
+     không gian cho biểu đồ và các ô KPI, chữ chrome (nhãn, menu) nhỏ gọn hơn. */
+  font-size: clamp(11px, 0.35vw + 9.5px, 13px);
 }
 
 html, body {
@@ -56,7 +56,7 @@ button {
 .app-shell {
   display: grid;
   grid-template-rows: 56px 1fr;
-  grid-template-columns: 320px 1fr;
+  grid-template-columns: 260px 1fr;
   grid-template-areas:
     "header header"
     "sidebar main";
@@ -293,15 +293,15 @@ button {
   border-radius: 2px;
   flex-shrink: 0;
 }
-.tag-name { flex: 1; font-size: 0.8929rem; }
+.tag-name { flex: 1; font-size: 0.82rem; }
 .tag-value {
   font-family: var(--font-mono);
-  font-size: 0.8571rem;
+  font-size: 0.78rem;
   font-weight: 600;
-  min-width: 42px;
+  min-width: 36px;
   text-align: right;
 }
-.tag-unit { font-size: 0.7143rem; font-family: var(--font-mono); min-width: 32px; }
+.tag-unit { font-size: 0.68rem; font-family: var(--font-mono); min-width: 26px; }
 
 /* =========================================================================
    MAIN AREA
@@ -321,7 +321,7 @@ button {
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 10px 20px;
+  padding: 7px 20px;
   border-bottom: 1px solid var(--border);
 }
 
@@ -368,31 +368,40 @@ button {
   justify-content: center;
   gap: 3px;
   min-width: 148px;
-  padding: 6px 18px;
+  padding: 8px 20px;
   background: var(--bg-input);
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent-cyan);
   border-radius: var(--radius);
 }
 
+/* Ưu tiên thị giác cho "Phân loại" - viền dày hơn + glow nhẹ để nổi bật nhất khung toolbar */
+#kpiClass1Card {
+  border: 1px solid rgba(0,229,255,0.4);
+  border-left: 4px solid var(--accent-cyan);
+  box-shadow: 0 0 14px rgba(0,229,255,0.12);
+  background: rgba(0,229,255,0.04);
+}
+
 .kpi-card__label {
   font-family: var(--font-mono);
-  font-size: 0.6786rem;
+  font-size: 0.66rem;
   letter-spacing: 0.06em;
   color: var(--text-faint);
 }
 
 .kpi-card__value {
   font-family: var(--font-mono);
-  font-size: 1.4286rem;
-  font-weight: 600;
+  font-size: 1.65rem;
+  font-weight: 700;
   color: var(--accent-cyan);
   line-height: 1.1;
 }
+#kpiClass1Card .kpi-card__value { font-size: 1.85rem; }
 
 .kpi-card__status {
   font-family: var(--font-mono);
-  font-size: 0.7143rem;
+  font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.05em;
   color: var(--text-faint);
@@ -571,7 +580,7 @@ button {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 8px 20px;
+  padding: 5px 20px;
   border-bottom: 1px solid var(--border);
   position: relative;
   flex-wrap: wrap;
@@ -977,7 +986,7 @@ button {
    ========================================================================= */
 @media (max-width: 1024px) {
   .app-shell {
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 220px 1fr;
   }
   .ai-result-panel { width: 340px; }
 }
