@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=10" />
+<link rel="stylesheet" href="css/style.css?v=11" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -54,15 +54,12 @@
   <aside class="sidebar">
 
     <section class="sidebar-section sidebar-section--stream is-disabled" id="streamSection">
-      <div class="sidebar-section__header">
+      <div class="sidebar-section__header sidebar-section__header--stream">
         <span class="sidebar-section__title">Nguồn dữ liệu: Firebase Realtime</span>
+        <span class="sidebar-section__meta" id="streamHeaderMeta">0 bản ghi · Chưa có dữ liệu</span>
       </div>
       <div class="stream-status" id="streamStatusContainer">
         <div class="empty-hint">Đăng nhập Google để bắt đầu nhận dữ liệu realtime từ Firebase.</div>
-      </div>
-      <div class="file-meta-bar">
-        <span id="streamRowCount">0 bản ghi</span>
-        <span id="streamLastUpdate">Chưa có dữ liệu</span>
       </div>
     </section>
 
@@ -78,16 +75,16 @@
   <!-- ===================== MAIN ===================== -->
   <main class="main-area">
     <div class="main-toolbar">
-      <label class="toggle-switch">
-        <input type="checkbox" id="chkNormalize" />
-        Chuẩn hoá 0–100% (so sánh hình dạng đa tín hiệu)
-      </label>
       <div class="toolbar-spacer"></div>
 
       <div class="kpi-cards" id="kpiCards" title="Di chuột trên biểu đồ để xem giá trị tại thời điểm đó; mặc định hiển thị giá trị mới nhất.">
         <div class="kpi-card" id="kpiClass1Card">
           <span class="kpi-card__label">PHÂN LOẠI (CLASS 1)</span>
           <span class="kpi-card__value" id="kpiClass1Value">—</span>
+        </div>
+        <div class="kpi-card" id="kpiSecCard">
+          <span class="kpi-card__label">SEC (SUẤT TIÊU HAO ĐIỆN)</span>
+          <span class="kpi-card__value" id="kpiSecValue">—</span>
         </div>
         <div class="kpi-card" id="kpiQualityCard">
           <span class="kpi-card__label">CHỈ SỐ CHẤT LƯỢNG</span>
@@ -159,6 +156,10 @@
     <span class="ai-result-panel__title">🔮 Dự đoán &amp; Mô phỏng (mô hình tự học từ dữ liệu)</span>
     <button class="btn btn--ghost btn--icon" id="btnClosePrediction">✕</button>
   </div>
+  <div class="prediction-update-banner" id="predictionUpdateBanner">
+    <span>🔄 Có dữ liệu mới từ Firebase — mô hình đã học ngầm, bấm để xem cập nhật</span>
+    <button class="btn btn--primary" id="btnRefreshPredictionPanel">Làm mới</button>
+  </div>
   <div class="ai-result-panel__body prediction-panel__body" id="predictionPanelBody"></div>
 </div>
 
@@ -198,16 +199,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=10"></script>
-<script src="js/downsample.js?v=10"></script>
-<script src="js/model.js?v=10"></script>
-<script src="js/firebaseAuth.js?v=10"></script>
-<script src="js/firebaseData.js?v=10"></script>
-<script src="js/chart.js?v=10"></script>
-<script src="js/gemini.js?v=10"></script>
-<script src="js/settings.js?v=10"></script>
-<script src="js/statusIndicators.js?v=10"></script>
-<script src="js/app.js?v=10"></script>
+<script src="js/config.js?v=11"></script>
+<script src="js/downsample.js?v=11"></script>
+<script src="js/model.js?v=11"></script>
+<script src="js/firebaseAuth.js?v=11"></script>
+<script src="js/firebaseData.js?v=11"></script>
+<script src="js/chart.js?v=11"></script>
+<script src="js/gemini.js?v=11"></script>
+<script src="js/settings.js?v=11"></script>
+<script src="js/statusIndicators.js?v=11"></script>
+<script src="js/app.js?v=11"></script>
 
 </body>
 </html>
