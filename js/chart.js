@@ -22,8 +22,9 @@
 const ChartModule = (() => {
   let chartInstance = null;
   let currentDataset = null; // { timestamps, series, rowCount }
+  let suppressNextDataZoom = false; // true ngay trước khi TỰ setOption, để không hiểu nhầm là user tự zoom
 
-  function init(domId, onHoverChange) {
+  function init(domId, onHoverChange, onManualZoom) {
     const el = document.getElementById(domId);
     chartInstance = echarts.init(el, null, { renderer: 'canvas' });
     window.addEventListener('resize', () => chartInstance.resize());
@@ -39,6 +40,27 @@ const ChartModule = (() => {
       });
       // Khi chuột rời khỏi vùng chart hoàn toàn -> quay về hiển thị giá trị mới nhất
       chartInstance.getZr().on('globalout', () => onHoverChange(null));
+    }
+
+    if (typeof onManualZoom === 'function') {
+      // Người dùng tự kéo/scroll để zoom -> "đóng băng" đúng khoảng đang xem,
+      // KHÔNG tính lại khi có dữ liệu realtime mới (tránh giật màn hình khi đang phân tích).
+      chartInstance.on('datazoom', () => {
+        if (suppressNextDataZoom) {
+          suppressNextDataZoom = false;
+          return;
+        }
+        const opt = chartInstance.getOption();
+        const axis = opt.xAxis && opt.xAxis[0];
+        const dz = opt.dataZoom && opt.dataZoom[0];
+        if (!axis || !dz || axis.min == null || axis.max == null) return;
+
+        const fullMin = axis.min;
+        const fullMax = axis.max;
+        const rangeMinMs = fullMin + (dz.start / 100) * (fullMax - fullMin);
+        const rangeMaxMs = fullMin + (dz.end / 100) * (fullMax - fullMin);
+        onManualZoom(rangeMinMs, rangeMaxMs);
+      });
     }
 
     renderEmpty();
@@ -76,7 +98,10 @@ const ChartModule = (() => {
   /**
    * selectedKeys: array of tag keys (numeric only, categorical hiển thị riêng ở nơi khác)
    * dataset: { timestamps, series }
-   * options: { normalize: boolean }
+   * options: { normalize: boolean, xMin: number|undefined, xMax: number|undefined }
+   *   xMin/xMax (mili giây, timestamp tuyệt đối) ép cửa sổ hiển thị cố định -
+   *   dùng cho preset thời gian (LIVE) hoặc vùng đã "đóng băng" (đang xem lịch sử).
+   *   Bỏ trống -> ECharts tự canh theo toàn bộ dữ liệu (chế độ "Toàn bộ").
    */
   function render(selectedKeys, dataset, options = {}) {
     currentDataset = dataset;
@@ -179,6 +204,8 @@ const ChartModule = (() => {
       ],
       xAxis: {
         type: 'time',
+        min: options.xMin,
+        max: options.xMax,
         axisLine: { lineStyle: { color: '#1f2937' } },
         axisLabel: { color: '#8fa3b8' },
         splitLine: { show: false },
@@ -187,6 +214,7 @@ const ChartModule = (() => {
       series: echartSeries,
     };
 
+    suppressNextDataZoom = true;
     chartInstance.setOption(option, true);
   }
 

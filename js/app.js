@@ -11,6 +11,11 @@ let state = {
   selectedKeys: [],      // các tag numeric đang bật trên chart
   normalize: false,
   models: null,          // { class1: {...}, quality: {...} } - mô hình hồi quy đã huấn luyện
+
+  // --- Điều khiển khung thời gian hiển thị trên biểu đồ ---
+  chartMode: 'live',        // 'live' (tự trượt theo preset) | 'history' (đã đóng băng do user tự zoom/kéo)
+  chartPresetMs: 15 * 60 * 1000, // độ dài cửa sổ khi ở chế độ live; null = "Toàn bộ"
+  chartFrozenRange: null,   // [minMs, maxMs] khi ở chế độ history
 };
 
 function showToast(message, type = 'info') {
@@ -87,7 +92,86 @@ function setTagPanelEnabled(enabled) {
 
 function rerenderChart() {
   if (!state.dataset) return;
-  ChartModule.render(state.selectedKeys, state.dataset, { normalize: state.normalize });
+
+  let xMin, xMax;
+  const timestamps = state.dataset.timestamps;
+  const latestTs = timestamps.length ? timestamps[timestamps.length - 1] : Date.now();
+
+  if (state.chartMode === 'history' && state.chartFrozenRange) {
+    [xMin, xMax] = state.chartFrozenRange;
+  } else if (state.chartMode === 'live' && state.chartPresetMs != null) {
+    xMax = latestTs;
+    xMin = latestTs - state.chartPresetMs;
+  }
+  // Nếu chartPresetMs === null ("Toàn bộ") -> để xMin/xMax undefined, ECharts tự canh full data
+
+  ChartModule.render(state.selectedKeys, state.dataset, { normalize: state.normalize, xMin, xMax });
+}
+
+function updateLiveStatusBadge() {
+  const badge = document.getElementById('liveStatusBadge');
+  const text = document.getElementById('liveStatusText');
+  if (!badge || !text) return;
+  badge.dataset.mode = state.chartMode;
+  text.textContent = state.chartMode === 'live' ? 'LIVE' : 'ĐANG XEM LỊCH SỬ';
+}
+
+function setActivePresetButton(ms) {
+  document.querySelectorAll('.range-btn[data-ms]').forEach((btn) => {
+    const btnMs = btn.dataset.ms === 'all' ? null : Number(btn.dataset.ms);
+    btn.classList.toggle('is-active', state.chartMode === 'live' && btnMs === state.chartPresetMs);
+  });
+}
+
+/**
+ * Chuyển sang chế độ LIVE với 1 độ dài cửa sổ cho trước (ms), hoặc null = Toàn bộ.
+ */
+function applyLivePreset(ms) {
+  state.chartMode = 'live';
+  state.chartPresetMs = ms;
+  state.chartFrozenRange = null;
+  setActivePresetButton(ms);
+  updateLiveStatusBadge();
+  rerenderChart();
+}
+
+/**
+ * Được gọi khi người dùng TỰ kéo/scroll để zoom trên biểu đồ -> đóng băng đúng
+ * vùng đang xem, không tính lại theo dữ liệu mới cho tới khi bấm preset/LIVE khác.
+ */
+function handleManualZoom(rangeMinMs, rangeMaxMs) {
+  state.chartMode = 'history';
+  state.chartFrozenRange = [rangeMinMs, rangeMaxMs];
+  setActivePresetButton(NaN); // bỏ highlight mọi preset vì đang ở chế độ tự do
+  updateLiveStatusBadge();
+}
+
+function zoomByFactor(factor) {
+  if (!state.dataset || !state.dataset.timestamps.length) return;
+  const timestamps = state.dataset.timestamps;
+  const latestTs = timestamps[timestamps.length - 1];
+
+  let curMin, curMax;
+  if (state.chartMode === 'history' && state.chartFrozenRange) {
+    [curMin, curMax] = state.chartFrozenRange;
+  } else if (state.chartPresetMs != null) {
+    curMax = latestTs;
+    curMin = latestTs - state.chartPresetMs;
+  } else {
+    curMin = timestamps[0];
+    curMax = latestTs;
+  }
+
+  const center = (curMin + curMax) / 2;
+  const halfWidth = ((curMax - curMin) / 2) * factor;
+  const newMin = center - halfWidth;
+  const newMax = center + halfWidth;
+
+  state.chartMode = 'history';
+  state.chartFrozenRange = [newMin, newMax];
+  setActivePresetButton(NaN);
+  updateLiveStatusBadge();
+  rerenderChart();
 }
 
 /**
@@ -518,6 +602,42 @@ function wireUiEvents() {
     state.normalize = e.target.checked;
     rerenderChart();
   });
+
+  // --- Nút preset thời gian ---
+  document.querySelectorAll('.range-btn[data-ms]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      document.getElementById('customRangePopover').classList.remove('is-open');
+      const ms = btn.dataset.ms === 'all' ? null : Number(btn.dataset.ms);
+      applyLivePreset(ms);
+    });
+  });
+
+  // --- Popover "Tuỳ chỉnh" ---
+  const customPopover = document.getElementById('customRangePopover');
+  document.getElementById('btnCustomRange').addEventListener('click', (e) => {
+    e.stopPropagation();
+    customPopover.classList.toggle('is-open');
+  });
+  document.addEventListener('click', (e) => {
+    if (!customPopover.contains(e.target) && e.target.id !== 'btnCustomRange') {
+      customPopover.classList.remove('is-open');
+    }
+  });
+  document.getElementById('btnApplyCustomRange').addEventListener('click', () => {
+    const value = parseFloat(document.getElementById('customRangeValue').value);
+    const unitMs = Number(document.getElementById('customRangeUnit').value);
+    if (!Number.isFinite(value) || value <= 0) {
+      showToast('Vui lòng nhập số hợp lệ (> 0).', 'warn');
+      return;
+    }
+    customPopover.classList.remove('is-open');
+    applyLivePreset(value * unitMs);
+  });
+
+  // --- Zoom in/out & quay lại LIVE ---
+  document.getElementById('btnZoomIn').addEventListener('click', () => zoomByFactor(0.5));
+  document.getElementById('btnZoomOut').addEventListener('click', () => zoomByFactor(2));
+  document.getElementById('btnLiveReset').addEventListener('click', () => applyLivePreset(state.chartPresetMs));
 }
 
 function onFirebaseAuthStatusChange({ signedIn }) {
@@ -562,7 +682,9 @@ window.addEventListener('DOMContentLoaded', () => {
 
   SettingsModule.init((hasKey) => StatusIndicatorsModule.setGeminiStatus(hasKey));
 
-  ChartModule.init('mainChart', (ts) => updateKpiCards(ts));
+  ChartModule.init('mainChart', (ts) => updateKpiCards(ts), (rangeMinMs, rangeMaxMs) => handleManualZoom(rangeMinMs, rangeMaxMs));
+  setActivePresetButton(state.chartPresetMs);
+  updateLiveStatusBadge();
 
   FirebaseAuthModule.init(onFirebaseAuthStatusChange);
 });
