@@ -6,34 +6,39 @@
  */
 
 const StatusIndicatorsModule = (() => {
-  function setIndicator(id, state, label) {
+  function setIndicator(id, state, title, label) {
     const el = document.getElementById(id);
     if (!el) return;
     el.dataset.state = state; // 'ok' | 'warn' | 'off'
-    const labelEl = el.querySelector('.status-label');
-    if (labelEl && label) labelEl.textContent = label;
+    if (title) el.title = title; // mô tả đầy đủ hiện khi hover chuột
+    if (label) {
+      const labelEl = el.querySelector('.status-label');
+      if (labelEl) labelEl.textContent = label;
+    }
   }
 
   /**
    * state: 'signedOut' | 'connecting' | 'connected' | 'denied'
+   * Nhãn hiển thị luôn là "Firebase" cố định - chấm tròn màu thể hiện trạng thái,
+   * mô tả đầy đủ xem khi hover (title).
    */
   function setFirebaseStatus(state) {
     const map = {
-      signedOut:  { ledState: 'off',  label: 'FIREBASE: CHƯA ĐĂNG NHẬP' },
-      connecting: { ledState: 'warn', label: 'FIREBASE: ĐANG KẾT NỐI...' },
-      connected:  { ledState: 'ok',   label: 'FIREBASE: REALTIME' },
-      denied:     { ledState: 'off',  label: 'FIREBASE: KHÔNG CÓ QUYỀN' },
+      signedOut:  { ledState: 'off',  title: 'Firebase: chưa đăng nhập' },
+      connecting: { ledState: 'warn', title: 'Firebase: đang kết nối...' },
+      connected:  { ledState: 'ok',   title: 'Firebase: đang nhận dữ liệu realtime' },
+      denied:     { ledState: 'off',  title: 'Firebase: tài khoản chưa được cấp quyền' },
     };
     const s = map[state] || map.signedOut;
-    setIndicator('statusFirebase', s.ledState, s.label);
+    setIndicator('statusFirebase', s.ledState, s.title);
   }
 
   function setGeminiStatus(hasKey) {
-    setIndicator('statusGemini', hasKey ? 'ok' : 'off', hasKey ? 'GEMINI: SẴN SÀNG' : 'GEMINI: CHƯA CÓ API KEY');
+    setIndicator('statusGemini', hasKey ? 'ok' : 'off', hasKey ? 'Gemini AI: sẵn sàng phân tích' : 'Gemini AI: chưa có API Key');
   }
 
   function setNetworkStatus(online) {
-    setIndicator('statusNetwork', online ? 'ok' : 'warn', online ? 'MẠNG: ONLINE' : 'MẠNG: OFFLINE');
+    setIndicator('statusNetwork', online ? 'ok' : 'warn', online ? 'Đang online' : 'Mất kết nối mạng', online ? 'Online' : 'Offline');
   }
 
   function initNetworkWatcher() {
@@ -43,14 +48,13 @@ const StatusIndicatorsModule = (() => {
   }
 
   function initClock() {
-    const clockEl = document.getElementById('liveClock');
-    if (!clockEl) return;
+    const dateEl = document.getElementById('liveClockDate');
+    const timeEl = document.getElementById('liveClockTime');
+    if (!dateEl || !timeEl) return;
     const tick = () => {
       const now = new Date();
-      clockEl.textContent = now.toLocaleString('vi-VN', {
-        hour: '2-digit', minute: '2-digit', second: '2-digit',
-        day: '2-digit', month: '2-digit', year: 'numeric',
-      });
+      dateEl.textContent = now.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' });
+      timeEl.textContent = now.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
     };
     tick();
     setInterval(tick, 1000);
