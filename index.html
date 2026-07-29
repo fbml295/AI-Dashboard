@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=5" />
+<link rel="stylesheet" href="css/style.css?v=6" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -98,6 +98,42 @@
       <button class="btn btn--primary" id="btnAnalyzeAI" disabled title="Phân tích toàn bộ thông số quá trình đối chiếu với Phân loại &amp; Chất lượng, đề xuất đóng/nhả đĩa nghiền">◆ PHÂN TÍCH AI</button>
     </div>
 
+    <div class="chart-controls" id="chartControls">
+      <div class="range-presets" id="rangePresets">
+        <button class="range-btn" type="button" data-ms="10000">10s</button>
+        <button class="range-btn" type="button" data-ms="60000">1p</button>
+        <button class="range-btn" type="button" data-ms="300000">5p</button>
+        <button class="range-btn is-active" type="button" data-ms="900000">15p</button>
+        <button class="range-btn" type="button" data-ms="3600000">1h</button>
+        <button class="range-btn" type="button" data-ms="14400000">4h</button>
+        <button class="range-btn" type="button" data-ms="86400000">24h</button>
+        <button class="range-btn" type="button" data-ms="all">Toàn bộ</button>
+        <button class="range-btn range-btn--custom" type="button" id="btnCustomRange">Tuỳ chỉnh ▾</button>
+      </div>
+
+      <div class="custom-range-popover" id="customRangePopover">
+        <input type="number" id="customRangeValue" min="1" value="30" />
+        <select id="customRangeUnit">
+          <option value="1000">giây</option>
+          <option value="60000" selected>phút</option>
+          <option value="3600000">giờ</option>
+        </select>
+        <button class="btn btn--primary" id="btnApplyCustomRange">Áp dụng</button>
+      </div>
+
+      <div class="toolbar-spacer"></div>
+
+      <div class="zoom-controls">
+        <button class="btn btn--ghost btn--icon" type="button" id="btnZoomOut" title="Thu nhỏ (xem khoảng rộng hơn)">−</button>
+        <button class="btn btn--ghost btn--icon" type="button" id="btnZoomIn" title="Phóng to (xem khoảng hẹp hơn)">+</button>
+        <button class="btn btn--ghost" type="button" id="btnLiveReset" title="Quay lại theo dõi realtime theo preset đang chọn">⟲ LIVE</button>
+      </div>
+
+      <div class="live-status" id="liveStatusBadge" data-mode="live">
+        <span class="live-dot"></span><span id="liveStatusText">LIVE</span>
+      </div>
+    </div>
+
     <div class="chart-wrap">
       <div id="mainChart"></div>
     </div>
@@ -159,16 +195,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=5"></script>
-<script src="js/downsample.js?v=5"></script>
-<script src="js/model.js?v=5"></script>
-<script src="js/firebaseAuth.js?v=5"></script>
-<script src="js/firebaseData.js?v=5"></script>
-<script src="js/chart.js?v=5"></script>
-<script src="js/gemini.js?v=5"></script>
-<script src="js/settings.js?v=5"></script>
-<script src="js/statusIndicators.js?v=5"></script>
-<script src="js/app.js?v=5"></script>
+<script src="js/config.js?v=6"></script>
+<script src="js/downsample.js?v=6"></script>
+<script src="js/model.js?v=6"></script>
+<script src="js/firebaseAuth.js?v=6"></script>
+<script src="js/firebaseData.js?v=6"></script>
+<script src="js/chart.js?v=6"></script>
+<script src="js/gemini.js?v=6"></script>
+<script src="js/settings.js?v=6"></script>
+<script src="js/statusIndicators.js?v=6"></script>
+<script src="js/app.js?v=6"></script>
 
 </body>
 </html>
