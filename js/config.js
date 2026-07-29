@@ -60,11 +60,11 @@ const TAG_DEFINITIONS = [
   { key: 'vibration',     label: 'Độ rung',            unit: 'mm/s',  group: 'Điện - Cơ khí', type: 'numeric', color: '#ffcc00' },
   { key: 'acceleration',  label: 'Gia tốc rung',       unit: 'g',     group: 'Điện - Cơ khí', type: 'numeric', color: '#ff9f1c' },
   { key: 'dsfspeed',      label: 'Tốc độ DSF',         unit: 'rpm',   group: 'Điện - Cơ khí', type: 'numeric', color: '#c792ea' },
-  { key: 'dsfflow',       label: 'Lưu lượng DSF',      unit: 'm³/h',  group: 'Điện - Cơ khí', type: 'numeric', color: '#82aaff' },
+  { key: 'dsfflow',       label: 'Lưu lượng DSF',      unit: 't/h',  group: 'Điện - Cơ khí', type: 'numeric', color: '#82aaff' },
 
-  { key: 'suppressure',   label: 'Áp suất Suppressure', unit: 'kPa',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff5370' },
-  { key: 'digesterp',     label: 'Áp suất Digester',    unit: 'kPa',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff8a80' },
-  { key: 'refinerp',      label: 'Áp suất Refiner',     unit: 'kPa',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff3b5c' },
+  { key: 'suppressure',   label: 'Áp suất Suppressure', unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff5370' },
+  { key: 'digesterp',     label: 'Áp suất Digester',    unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff8a80' },
+  { key: 'refinerp',      label: 'Áp suất Refiner',     unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff3b5c' },
   { key: 'presteamtemp',  label: 'Nhiệt độ hơi sơ bộ', unit: '°C',    group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffab40' },
   { key: 'cookingtime',   label: 'Thời gian nấu',       unit: 'phút', group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffd740' },
 
