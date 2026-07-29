@@ -63,7 +63,8 @@ function buildTagPanel() {
         <input type="checkbox" class="tag-checkbox" data-key="${tag.key}" ${tag.type === 'categorical' ? 'disabled' : ''} />
         <span class="tag-swatch" style="background:${tag.color || '#666'}"></span>
         <span class="tag-name">${tag.label}</span>
-        <span class="tag-unit">${tag.unit || ''}</span>
+        <span class="tag-value" id="tagValue_${tag.key}" style="color:${tag.color || '#8fa3b8'}">—</span>
+        <span class="tag-unit" style="color:${tag.color || '#8fa3b8'}">${tag.unit || ''}</span>
       `;
       groupEl.appendChild(row);
     });
@@ -80,6 +81,32 @@ function buildTagPanel() {
       state.selectedKeys = state.selectedKeys.filter(k => k !== key);
     }
     rerenderChart();
+  });
+}
+
+/**
+ * Cập nhật giá trị "mới nhất" hiển thị trên danh sách tag bên trái, cho TẤT CẢ
+ * tag (kể cả tag chưa tick chọn hiển thị trên chart) - gọi lại mỗi khi Firebase
+ * đẩy dữ liệu mới về, để danh sách tag luôn phản ánh realtime.
+ */
+function updateTagPanelValues() {
+  if (!state.dataset || !state.dataset.timestamps.length) {
+    TAG_DEFINITIONS.forEach((tag) => {
+      const el = document.getElementById(`tagValue_${tag.key}`);
+      if (el) el.textContent = '—';
+    });
+    return;
+  }
+  const lastIdx = state.dataset.timestamps.length - 1;
+  TAG_DEFINITIONS.forEach((tag) => {
+    const el = document.getElementById(`tagValue_${tag.key}`);
+    if (!el) return;
+    const raw = state.dataset.series[tag.key] ? state.dataset.series[tag.key][lastIdx] : undefined;
+    if (tag.type === 'numeric') {
+      el.textContent = Number.isFinite(raw) ? raw.toFixed(1) : '—';
+    } else if (tag.type === 'categorical') {
+      el.textContent = raw != null && raw !== '' ? String(raw) : '—';
+    }
   });
 }
 
@@ -519,6 +546,7 @@ function handleFirebaseUpdate({ dataset, error }) {
   setTagPanelEnabled(true);
   rerenderChart();
   updateKpiCards(null);
+  updateTagPanelValues();
   updateAnalyzeButtonState();
   trainModelsForDataset();
 
@@ -663,6 +691,7 @@ function onFirebaseAuthStatusChange({ signedIn }) {
     setTagPanelEnabled(false);
     ChartModule.renderEmpty();
     updateKpiCards(null);
+    updateTagPanelValues();
     updateAnalyzeButtonState();
     document.getElementById('btnOpenPrediction').disabled = true;
     document.getElementById('predictionPanel').classList.remove('is-open');
