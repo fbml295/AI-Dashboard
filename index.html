@@ -6,9 +6,9 @@
 <title>AI-Dashboard — Giám sát Vận hành Nghiền Bột Giấy</title>
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=9" />
+<link rel="stylesheet" href="css/style.css?v=10" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -24,26 +24,30 @@
   <!-- ===================== HEADER / STATUS RAIL ===================== -->
   <header class="status-rail">
     <div class="brand">
-      AI-DASHBOARD <small>SCADA REALTIME MONITOR</small>
+      <span class="brand__main">AI-DASHBOARD</span>
+      <span class="brand__sub">SCADA REALTIME MONITOR</span>
     </div>
 
     <div class="status-group">
-      <div class="status-lamp" id="statusFirebase" data-state="off">
-        <span class="led"></span><span class="status-label">FIREBASE: CHƯA ĐĂNG NHẬP</span>
+      <div class="status-lamp" id="statusFirebase" data-state="off" title="Chưa đăng nhập">
+        <span class="led"></span><span class="status-label">Firebase</span>
       </div>
-      <div class="status-lamp" id="statusGemini" data-state="off">
-        <span class="led"></span><span class="status-label">GEMINI: CHƯA CÓ API KEY</span>
+      <div class="status-lamp" id="statusGemini" data-state="off" title="Chưa có API Key">
+        <span class="led"></span><span class="status-label">Gemini AI</span>
       </div>
-      <div class="status-lamp" id="statusNetwork" data-state="ok">
-        <span class="led"></span><span class="status-label">MẠNG: ONLINE</span>
+      <div class="status-lamp" id="statusNetwork" data-state="ok" title="Đang online">
+        <span class="led"></span><span class="status-label">Online</span>
       </div>
     </div>
 
-    <div class="live-clock" id="liveClock">--:--:--</div>
+    <div class="live-clock">
+      <span class="live-clock__date" id="liveClockDate">--/--/----</span>
+      <span class="live-clock__time" id="liveClockTime">--:--:--</span>
+    </div>
 
-    <button class="btn btn--ghost btn--icon" id="btnOpenSettings" title="Cài đặt Gemini API Key">⚙ CÀI ĐẶT</button>
+    <button class="btn btn--ghost btn--icon btn--gear" id="btnOpenSettings" title="Cài đặt Gemini API Key">⚙</button>
     <button class="btn btn--primary" id="btnSignIn">ĐĂNG NHẬP GOOGLE</button>
-    <button class="btn btn--ghost is-hidden" id="btnSignOut">ĐĂNG XUẤT</button>
+    <button class="btn btn--ghost btn--sm is-hidden" id="btnSignOut">Đăng xuất</button>
   </header>
 
   <!-- ===================== SIDEBAR ===================== -->
@@ -194,16 +198,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=9"></script>
-<script src="js/downsample.js?v=9"></script>
-<script src="js/model.js?v=9"></script>
-<script src="js/firebaseAuth.js?v=9"></script>
-<script src="js/firebaseData.js?v=9"></script>
-<script src="js/chart.js?v=9"></script>
-<script src="js/gemini.js?v=9"></script>
-<script src="js/settings.js?v=9"></script>
-<script src="js/statusIndicators.js?v=9"></script>
-<script src="js/app.js?v=9"></script>
+<script src="js/config.js?v=10"></script>
+<script src="js/downsample.js?v=10"></script>
+<script src="js/model.js?v=10"></script>
+<script src="js/firebaseAuth.js?v=10"></script>
+<script src="js/firebaseData.js?v=10"></script>
+<script src="js/chart.js?v=10"></script>
+<script src="js/gemini.js?v=10"></script>
+<script src="js/settings.js?v=10"></script>
+<script src="js/statusIndicators.js?v=10"></script>
+<script src="js/app.js?v=10"></script>
 
 </body>
 </html>
