@@ -9,7 +9,6 @@
 let state = {
   dataset: null,        // { timestamps, series, rowCount } - cập nhật realtime từ Firebase
   selectedKeys: [],      // các tag numeric đang bật trên chart
-  normalize: false,
   models: null,          // { class1: {...}, quality: {...} } - mô hình hồi quy đã huấn luyện
 
   // --- Điều khiển khung thời gian hiển thị trên biểu đồ ---
@@ -132,7 +131,7 @@ function rerenderChart() {
   }
   // Nếu chartPresetMs === null ("Toàn bộ") -> để xMin/xMax undefined, ECharts tự canh full data
 
-  ChartModule.render(state.selectedKeys, state.dataset, { normalize: state.normalize, xMin, xMax });
+  ChartModule.render(state.selectedKeys, state.dataset, { xMin, xMax });
 }
 
 function updateLiveStatusBadge() {
@@ -236,9 +235,13 @@ function trainModelsForDataset() {
   state.models = { class1: class1Model, quality: qualityModel };
   btn.disabled = !(class1Model.ok && qualityModel.ok);
 
-  // Nếu panel đang mở, làm mới ngay theo mô hình vừa huấn luyện lại
-  if (document.getElementById('predictionPanel').classList.contains('is-open')) {
-    renderPredictionPanel();
+  // QUAN TRỌNG: nếu panel Dự đoán đang mở, KHÔNG tự vẽ lại toàn bộ nội dung -
+  // sẽ làm mất các tick/giá trị người dùng đang nhập để mô phỏng dở tay.
+  // Chỉ hiện 1 banner nhỏ báo có bản cập nhật mới, để họ tự bấm làm mới khi sẵn sàng.
+  const panel = document.getElementById('predictionPanel');
+  if (panel.classList.contains('is-open')) {
+    const banner = document.getElementById('predictionUpdateBanner');
+    if (banner) banner.classList.add('is-visible');
   }
 }
 
@@ -478,11 +481,13 @@ function getQualityBand(value) {
  */
 function updateKpiCards(ts) {
   const class1ValEl = document.getElementById('kpiClass1Value');
+  const secValEl = document.getElementById('kpiSecValue');
   const qualityValEl = document.getElementById('kpiQualityValue');
   const qualityStatusEl = document.getElementById('kpiQualityStatus');
 
   if (!state.dataset || !state.dataset.timestamps.length) {
     class1ValEl.textContent = '—';
+    secValEl.textContent = '—';
     qualityValEl.textContent = '—';
     qualityStatusEl.textContent = '—';
     qualityStatusEl.className = 'kpi-card__status';
@@ -494,8 +499,16 @@ function updateKpiCards(ts) {
 
   const class1Val = series['class1'] ? series['class1'][idx] : NaN;
   const qualityVal = series['quality'] ? series['quality'][idx] : NaN;
+  const pkwhVal = series['pkwh'] ? series['pkwh'][idx] : NaN;
+  const dsfflowVal = series['dsfflow'] ? series['dsfflow'][idx] : NaN;
 
   class1ValEl.textContent = Number.isFinite(class1Val) ? `${class1Val.toFixed(1)}%` : '—';
+
+  // SEC (Specific Energy Consumption) = công suất tiêu thụ / lưu lượng DSF
+  const secVal = (Number.isFinite(pkwhVal) && Number.isFinite(dsfflowVal) && dsfflowVal !== 0)
+    ? pkwhVal / dsfflowVal
+    : NaN;
+  secValEl.textContent = Number.isFinite(secVal) ? `${secVal.toFixed(2)} kWh/t` : '—';
 
   if (Number.isFinite(qualityVal)) {
     qualityValEl.textContent = `${qualityVal.toFixed(1)} / 10`;
@@ -550,14 +563,17 @@ function handleFirebaseUpdate({ dataset, error }) {
   updateAnalyzeButtonState();
   trainModelsForDataset();
 
-  document.getElementById('streamRowCount').textContent = `${dataset.rowCount.toLocaleString('vi-VN')} bản ghi`;
-  document.getElementById('streamLastUpdate').textContent = `Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`;
+  document.getElementById('streamHeaderMeta').textContent =
+    `${dataset.rowCount.toLocaleString('vi-VN')} bản ghi · Cập nhật lúc ${new Date().toLocaleTimeString('vi-VN')}`;
   document.getElementById('streamSection').classList.remove('is-disabled');
 
   const containerEl = document.getElementById('streamStatusContainer');
   if (containerEl) {
+    // Khi đã có dữ liệu, không cần thông báo "Đang lắng nghe..." nữa - số bản ghi
+    // + thời gian cập nhật ở header đã đủ nói lên điều đó. Chỉ giữ thông báo khi
+    // kết nối thành công nhưng node "scada_data" vẫn trống.
     containerEl.innerHTML = dataset.rowCount
-      ? '<div class="empty-hint">✅ Đang lắng nghe dữ liệu realtime từ Firebase.</div>'
+      ? ''
       : '<div class="empty-hint">Đã kết nối nhưng "scada_data" hiện chưa có bản ghi nào.</div>';
   }
 
@@ -620,17 +636,18 @@ function wireUiEvents() {
   });
   document.getElementById('btnOpenPrediction').addEventListener('click', () => {
     document.getElementById('aiResultPanel').classList.remove('is-open');
+    document.getElementById('predictionUpdateBanner').classList.remove('is-visible');
     renderPredictionPanel();
     document.getElementById('predictionPanel').classList.add('is-open');
   });
+  document.getElementById('btnRefreshPredictionPanel').addEventListener('click', () => {
+    document.getElementById('predictionUpdateBanner').classList.remove('is-visible');
+    renderPredictionPanel();
+  });
   document.getElementById('btnClosePrediction').addEventListener('click', () => {
     document.getElementById('predictionPanel').classList.remove('is-open');
+    document.getElementById('predictionUpdateBanner').classList.remove('is-visible');
   });
-  document.getElementById('chkNormalize').addEventListener('change', (e) => {
-    state.normalize = e.target.checked;
-    rerenderChart();
-  });
-
   // --- Nút preset thời gian ---
   document.querySelectorAll('.range-btn[data-ms]').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -683,8 +700,7 @@ function onFirebaseAuthStatusChange({ signedIn }) {
     document.getElementById('streamSection').classList.add('is-disabled');
     document.getElementById('streamStatusContainer').innerHTML =
       '<div class="empty-hint">Đăng nhập Google để bắt đầu nhận dữ liệu realtime từ Firebase.</div>';
-    document.getElementById('streamRowCount').textContent = '0 bản ghi';
-    document.getElementById('streamLastUpdate').textContent = 'Chưa có dữ liệu';
+    document.getElementById('streamHeaderMeta').textContent = '0 bản ghi · Chưa có dữ liệu';
 
     state.dataset = null;
     state.models = null;
