@@ -62,14 +62,14 @@ const TAG_DEFINITIONS = [
   { key: 'dsfspeed',      label: 'Tốc độ DSF',         unit: 'rpm',   group: 'Điện - Cơ khí', type: 'numeric', color: '#c792ea' },
   { key: 'dsfflow',       label: 'Lưu lượng DSF',      unit: 't/h',  group: 'Điện - Cơ khí', type: 'numeric', color: '#82aaff' },
 
-  { key: 'suppressure',   label: 'Áp suất Suppressure', unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff5370' },
+  { key: 'suppressure',   label: 'Áp suất tổng', unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff5370' },
   { key: 'digesterp',     label: 'Áp suất Digester',    unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff8a80' },
   { key: 'refinerp',      label: 'Áp suất Refiner',     unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff3b5c' },
-  { key: 'presteamtemp',  label: 'Nhiệt độ hơi sơ bộ', unit: '°C',    group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffab40' },
+  { key: 'presteamtemp',  label: 'Nhiệt độ bồn hấp', unit: '°C',    group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffab40' },
   { key: 'cookingtime',   label: 'Thời gian nấu',       unit: 'phút', group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffd740' },
 
   { key: 'chipmoisture',  label: 'Độ ẩm dăm gỗ',       unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#69f0ae' },
-  { key: 'fibermoisture', label: 'Độ ẩm xơ sợi',       unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#00e676' },
+  { key: 'fibermoisture', label: 'Độ ẩm sợi',       unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#00e676' },
   { key: 'acacia',        label: 'Tỷ lệ gỗ Keo (Acacia)', unit: '%',  group: 'Nguyên liệu', type: 'numeric', color: '#b2ff59' },
   { key: 'pine',          label: 'Tỷ lệ gỗ Thông (Pine)', unit: '%',  group: 'Nguyên liệu', type: 'numeric', color: '#ccff90' },
   { key: 'mixwood',       label: 'Tỷ lệ gỗ hỗn hợp',   unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#eeff41' },
