@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=13" />
+<link rel="stylesheet" href="css/style.css?v=14" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -80,7 +80,7 @@
 
       <div class="kpi-cards" id="kpiCards" title="Di chuột trên biểu đồ để xem giá trị tại thời điểm đó; mặc định hiển thị giá trị mới nhất.">
         <div class="kpi-card" id="kpiSecCard">
-          <span class="kpi-card__label">SEC (SUẤT TIÊU HAO ĐIỆN)</span>
+          <span class="kpi-card__label">SEC</span>
           <span class="kpi-card__value" id="kpiSecValue">—</span>
           <span class="kpi-card__unit">kWh/t</span>
         </div>
@@ -89,20 +89,12 @@
           <span class="kpi-card__value" id="kpiClass1Value">—</span>
           <span class="kpi-card__unit">%</span>
         </div>
-        <div class="kpi-card kpi-card--quality" id="kpiQualityCard">
+        <div class="kpi-card kpi-card--quality" id="kpiQualityCard" title="Di chuột lên từng vạch để xem đánh giá">
           <span class="kpi-card__label">CHỈ SỐ CHẤT LƯỢNG</span>
-          <div class="quality-row">
-            <span class="kpi-card__value kpi-card__value--sm" id="kpiQualityValue">—</span>
-            <span class="kpi-card__status" id="kpiQualityStatus">—</span>
-          </div>
-          <div class="quality-bar" id="qualityBar">
-            <div class="quality-bar__track" id="qualityBarTrack">
-              <div class="quality-bar__marker" id="qualityBarMarker"></div>
-            </div>
-            <div class="quality-bar__scale">
-              <span>Thô</span>
-              <span>Mịn</span>
-            </div>
+          <div class="quality-segments" id="qualitySegments"></div>
+          <div class="quality-bar__scale">
+            <span>Thô</span>
+            <span>Mịn</span>
           </div>
         </div>
       </div>
@@ -213,16 +205,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=13"></script>
-<script src="js/downsample.js?v=13"></script>
-<script src="js/model.js?v=13"></script>
-<script src="js/firebaseAuth.js?v=13"></script>
-<script src="js/firebaseData.js?v=13"></script>
-<script src="js/chart.js?v=13"></script>
-<script src="js/gemini.js?v=13"></script>
-<script src="js/settings.js?v=13"></script>
-<script src="js/statusIndicators.js?v=13"></script>
-<script src="js/app.js?v=13"></script>
+<script src="js/config.js?v=14"></script>
+<script src="js/downsample.js?v=14"></script>
+<script src="js/model.js?v=14"></script>
+<script src="js/firebaseAuth.js?v=14"></script>
+<script src="js/firebaseData.js?v=14"></script>
+<script src="js/chart.js?v=14"></script>
+<script src="js/gemini.js?v=14"></script>
+<script src="js/settings.js?v=14"></script>
+<script src="js/statusIndicators.js?v=14"></script>
+<script src="js/app.js?v=14"></script>
 
 </body>
 </html>
