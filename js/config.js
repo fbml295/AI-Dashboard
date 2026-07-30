@@ -60,19 +60,20 @@ const TAG_DEFINITIONS = [
   { key: 'vibration',     label: 'Độ rung',            unit: 'mm/s',  group: 'Điện - Cơ khí', type: 'numeric', color: '#ffcc00' },
   { key: 'acceleration',  label: 'Gia tốc rung',       unit: 'g',     group: 'Điện - Cơ khí', type: 'numeric', color: '#ff9f1c' },
   { key: 'dsfspeed',      label: 'Tốc độ DSF',         unit: 'rpm',   group: 'Điện - Cơ khí', type: 'numeric', color: '#c792ea' },
-  { key: 'dsfflow',       label: 'Lưu lượng DSF',      unit: 'm³/h',  group: 'Điện - Cơ khí', type: 'numeric', color: '#82aaff' },
+  { key: 'dsfflow',       label: 'Lưu lượng DSF',      unit: 't/h',   group: 'Điện - Cơ khí', type: 'numeric', color: '#82aaff' },
 
-  { key: 'suppressure',   label: 'Áp suất Suppressure', unit: 'kPa',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff5370' },
-  { key: 'digesterp',     label: 'Áp suất Digester',    unit: 'kPa',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff8a80' },
-  { key: 'refinerp',      label: 'Áp suất Refiner',     unit: 'kPa',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff3b5c' },
+  { key: 'suppressure',   label: 'Áp suất Suppressure', unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff5370' },
+  { key: 'digesterp',     label: 'Áp suất Digester',    unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff8a80' },
+  { key: 'refinerp',      label: 'Áp suất Refiner',     unit: 'Bar',  group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ff3b5c' },
   { key: 'presteamtemp',  label: 'Nhiệt độ hơi sơ bộ', unit: '°C',    group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffab40' },
   { key: 'cookingtime',   label: 'Thời gian nấu',       unit: 'phút', group: 'Áp suất - Nhiệt', type: 'numeric', color: '#ffd740' },
 
   { key: 'chipmoisture',  label: 'Độ ẩm dăm gỗ',       unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#69f0ae' },
-  { key: 'fibermoisture', label: 'Độ ẩm xơ sợi',       unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#00e676' },
   { key: 'acacia',        label: 'Tỷ lệ gỗ Keo (Acacia)', unit: '%',  group: 'Nguyên liệu', type: 'numeric', color: '#b2ff59' },
   { key: 'pine',          label: 'Tỷ lệ gỗ Thông (Pine)', unit: '%',  group: 'Nguyên liệu', type: 'numeric', color: '#ccff90' },
   { key: 'mixwood',       label: 'Tỷ lệ gỗ hỗn hợp',   unit: '%',     group: 'Nguyên liệu', type: 'numeric', color: '#eeff41' },
+
+  { key: 'fibermoisture', label: 'Độ ẩm sợi',          unit: '%',     group: 'Độ ẩm sợi', type: 'numeric', color: '#00e676' },
 
   { key: 'class1',        label: 'Phân loại (Class 1)', unit: '%',    group: 'Chất lượng', type: 'numeric', color: '#40c4ff' },
   { key: 'quality',       label: 'Chỉ số chất lượng',   unit: '',     group: 'Chất lượng', type: 'numeric', color: '#00e5ff' },
@@ -82,4 +83,4 @@ const TAG_DEFINITIONS = [
 // LƯU Ý: "Chất lượng" (Phân loại/Chỉ số chất lượng) KHÔNG đưa vào đây nữa vì
 // đã có ô KPI riêng ở đầu trang - tag class1/quality vẫn tồn tại trong
 // TAG_DEFINITIONS (dùng cho biểu đồ/model/AI khi cần), chỉ ẩn khỏi checklist.
-const TAG_GROUP_ORDER = ['Nguyên liệu', 'Điện - Cơ khí', 'Áp suất - Nhiệt'];
+const TAG_GROUP_ORDER = ['Nguyên liệu', 'Độ ẩm sợi', 'Điện - Cơ khí', 'Áp suất - Nhiệt'];
