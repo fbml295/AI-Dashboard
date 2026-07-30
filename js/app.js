@@ -475,6 +475,46 @@ function getQualityBand(value) {
 }
 
 /**
+ * Nội suy tuyến tính giữa 2 màu hex, t trong [0,1].
+ */
+function lerpColor(hexA, hexB, t) {
+  const a = hexA.match(/\w\w/g).map(x => parseInt(x, 16));
+  const b = hexB.match(/\w\w/g).map(x => parseInt(x, 16));
+  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
+  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
+}
+
+/**
+ * Màu cho vạch thứ i (1-10): đối xứng qua tâm (giữa vạch 5 và 6) -
+ * XANH LÁ ở giữa (đạt chuẩn) -> VÀNG (amber) -> ĐỎ ở 2 đầu (quá thô / quá mịn).
+ * Đây là màu tôi TỰ ĐỀ XUẤT cho 2 đầu - xem phần chat để xác nhận có đúng ý không.
+ */
+function computeQualitySegmentColor(i) {
+  const CENTER = 5.5, MAX_DIST = 4.5;
+  const GREEN = '#00ff9d', AMBER = '#ffb300', RED = '#ff3b5c';
+  const dist = Math.abs(i - CENTER);
+  const t = Math.min(1, dist / MAX_DIST);
+  return t <= 0.5 ? lerpColor(GREEN, AMBER, t / 0.5) : lerpColor(AMBER, RED, (t - 0.5) / 0.5);
+}
+
+/**
+ * Sinh 10 vạch màu cho thanh Chất lượng - chỉ cần chạy 1 lần lúc khởi động
+ * vì màu sắc cố định, không đổi theo dữ liệu.
+ */
+function initQualityBarZones() {
+  const container = document.getElementById('qualitySegments');
+  if (!container) return;
+  container.innerHTML = '';
+  for (let i = 1; i <= 10; i++) {
+    const seg = document.createElement('div');
+    seg.className = 'quality-segment';
+    seg.dataset.index = String(i);
+    seg.style.background = computeQualitySegmentColor(i);
+    container.appendChild(seg);
+  }
+}
+
+/**
  * Cập nhật 2 ô KPI "Phân loại" và "Chất lượng".
  * ts = null  -> hiển thị giá trị dòng dữ liệu MỚI NHẤT hiện có.
  * ts = số ms -> hiển thị giá trị tại điểm gần nhất với thời điểm đang hover trên chart.
@@ -482,15 +522,14 @@ function getQualityBand(value) {
 function updateKpiCards(ts) {
   const class1ValEl = document.getElementById('kpiClass1Value');
   const secValEl = document.getElementById('kpiSecValue');
-  const qualityValEl = document.getElementById('kpiQualityValue');
-  const qualityStatusEl = document.getElementById('kpiQualityStatus');
+  const qualitySegments = document.querySelectorAll('.quality-segment');
+  const qualityCardEl = document.getElementById('kpiQualityCard');
 
   if (!state.dataset || !state.dataset.timestamps.length) {
     class1ValEl.textContent = '—';
     secValEl.textContent = '—';
-    qualityValEl.textContent = '—';
-    qualityStatusEl.textContent = '—';
-    qualityStatusEl.className = 'kpi-card__status';
+    qualitySegments.forEach(el => el.classList.remove('is-active'));
+    qualityCardEl.title = 'Di chuột lên từng vạch để xem đánh giá';
     return;
   }
 
@@ -502,23 +541,24 @@ function updateKpiCards(ts) {
   const pkwhVal = series['pkwh'] ? series['pkwh'][idx] : NaN;
   const dsfflowVal = series['dsfflow'] ? series['dsfflow'][idx] : NaN;
 
-  class1ValEl.textContent = Number.isFinite(class1Val) ? `${class1Val.toFixed(1)}%` : '—';
+  class1ValEl.textContent = Number.isFinite(class1Val) ? class1Val.toFixed(1) : '—';
 
   // SEC (Specific Energy Consumption) = công suất tiêu thụ / lưu lượng DSF
   const secVal = (Number.isFinite(pkwhVal) && Number.isFinite(dsfflowVal) && dsfflowVal !== 0)
     ? pkwhVal / dsfflowVal
     : NaN;
-  secValEl.textContent = Number.isFinite(secVal) ? `${secVal.toFixed(2)} kWh/t` : '—';
+  secValEl.textContent = Number.isFinite(secVal) ? secVal.toFixed(2) : '—';
 
   if (Number.isFinite(qualityVal)) {
-    qualityValEl.textContent = `${qualityVal.toFixed(1)} / 10`;
+    const activeIdx = Math.min(10, Math.max(1, Math.round(qualityVal)));
+    qualitySegments.forEach((el) => {
+      el.classList.toggle('is-active', Number(el.dataset.index) === activeIdx);
+    });
     const band = getQualityBand(qualityVal);
-    qualityStatusEl.textContent = band.label;
-    qualityStatusEl.className = `kpi-card__status kpi-card__status--${band.cssClass}`;
+    qualityCardEl.title = `Điểm hiện tại: ${qualityVal.toFixed(1)}/10 - ${band.label}`;
   } else {
-    qualityValEl.textContent = '—';
-    qualityStatusEl.textContent = '—';
-    qualityStatusEl.className = 'kpi-card__status';
+    qualitySegments.forEach(el => el.classList.remove('is-active'));
+    qualityCardEl.title = 'Chưa có dữ liệu Chất lượng';
   }
 }
 
@@ -685,9 +725,12 @@ function wireUiEvents() {
   document.getElementById('btnLiveReset').addEventListener('click', () => applyLivePreset(state.chartPresetMs));
 }
 
-function onFirebaseAuthStatusChange({ signedIn }) {
+function onFirebaseAuthStatusChange({ signedIn, user }) {
   document.getElementById('btnSignIn').classList.toggle('is-hidden', signedIn);
   document.getElementById('btnSignOut').classList.toggle('is-hidden', !signedIn);
+
+  const userBadge = document.getElementById('userBadge');
+  userBadge.textContent = (signedIn && user) ? (user.displayName || user.email || '') : '';
 
   if (signedIn) {
     StatusIndicatorsModule.setFirebaseStatus('connecting');
@@ -719,6 +762,7 @@ window.addEventListener('DOMContentLoaded', () => {
   buildTagPanel();
   setTagPanelEnabled(false);
   wireUiEvents();
+  initQualityBarZones();
 
   StatusIndicatorsModule.initClock();
   StatusIndicatorsModule.initNetworkWatcher();
