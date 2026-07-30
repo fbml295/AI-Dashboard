@@ -441,21 +441,23 @@ button {
 
 .kpi-card__value {
   font-family: var(--font-mono);
-  font-size: 1.65rem;
+  font-size: 1.78rem;
   font-weight: 700;
   color: var(--accent-cyan);
   line-height: 1.15;
 }
-#kpiClass1Card .kpi-card__value { font-size: 1.85rem; }
+#kpiClass1Card .kpi-card__value { font-size: 2.05rem; }
 .kpi-card__value--sm { font-size: 1.15rem; }
 
 /* Đơn vị nằm dòng RIÊNG bên dưới số, tránh số nhảy vị trí khi độ dài thay đổi */
 .kpi-card__unit {
   font-family: var(--font-mono);
-  font-size: 0.6rem;
-  color: var(--text-faint);
-  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
+  margin-top: 1px;
 }
 
 .kpi-card__status {
@@ -477,9 +479,16 @@ button {
 }
 .quality-segment {
   flex: 1;
-  height: 15px;
+  height: 20px;
   border-radius: 2px;
   opacity: 0.32;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-mono);
+  font-size: 0.62rem;
+  font-weight: 700;
+  color: var(--bg-void);
   transition: opacity 0.25s ease, transform 0.25s ease;
 }
 .quality-segment.is-active {
@@ -491,13 +500,17 @@ button {
 .quality-bar__scale {
   display: flex;
   justify-content: space-between;
-  margin-top: 3px;
+  margin-top: 4px;
+  padding: 0 1px;
   font-family: var(--font-mono);
-  font-size: 0.58rem;
+  font-size: 0.66rem;
+  font-weight: 500;
   color: var(--text-dim);
   letter-spacing: 0.04em;
   text-transform: uppercase;
 }
+.quality-bar__scale span:first-child { text-align: left; }
+.quality-bar__scale span:last-child { text-align: right; }
 
 .ai-result-panel.prediction-panel {
   width: 480px;
