@@ -475,26 +475,13 @@ function getQualityBand(value) {
 }
 
 /**
- * Nội suy tuyến tính giữa 2 màu hex, t trong [0,1].
- */
-function lerpColor(hexA, hexB, t) {
-  const a = hexA.match(/\w\w/g).map(x => parseInt(x, 16));
-  const b = hexB.match(/\w\w/g).map(x => parseInt(x, 16));
-  const c = a.map((v, i) => Math.round(v + (b[i] - v) * t));
-  return `rgb(${c[0]}, ${c[1]}, ${c[2]})`;
-}
-
-/**
- * Màu cho vạch thứ i (1-10): đối xứng qua tâm (giữa vạch 5 và 6) -
- * XANH LÁ ở giữa (đạt chuẩn) -> VÀNG (amber) -> ĐỎ ở 2 đầu (quá thô / quá mịn).
- * Đây là màu tôi TỰ ĐỀ XUẤT cho 2 đầu - xem phần chat để xác nhận có đúng ý không.
+ * Màu cho vạch thứ i (1-10): dải NÓNG -> LẠNH theo đúng yêu cầu (Thô = nóng/đỏ,
+ * Mịn = lạnh/lam), đi qua cam -> vàng -> XANH LÁ ở giữa (đạt chuẩn) -> lam.
+ * Dùng nội suy Hue trong hệ màu HSL cho chuyển màu mượt tự nhiên như cầu vồng.
  */
 function computeQualitySegmentColor(i) {
-  const CENTER = 5.5, MAX_DIST = 4.5;
-  const GREEN = '#00ff9d', AMBER = '#ffb300', RED = '#ff3b5c';
-  const dist = Math.abs(i - CENTER);
-  const t = Math.min(1, dist / MAX_DIST);
-  return t <= 0.5 ? lerpColor(GREEN, AMBER, t / 0.5) : lerpColor(AMBER, RED, (t - 0.5) / 0.5);
+  const hue = ((i - 1) / 9) * 220; // 0° = đỏ (thô nhất) -> 220° = lam (mịn nhất)
+  return `hsl(${hue.toFixed(0)}, 85%, 55%)`;
 }
 
 /**
@@ -528,7 +515,7 @@ function updateKpiCards(ts) {
   if (!state.dataset || !state.dataset.timestamps.length) {
     class1ValEl.textContent = '—';
     secValEl.textContent = '—';
-    qualitySegments.forEach(el => el.classList.remove('is-active'));
+    qualitySegments.forEach((el) => { el.classList.remove('is-active'); el.textContent = ''; });
     qualityCardEl.title = 'Di chuột lên từng vạch để xem đánh giá';
     return;
   }
@@ -552,12 +539,17 @@ function updateKpiCards(ts) {
   if (Number.isFinite(qualityVal)) {
     const activeIdx = Math.min(10, Math.max(1, Math.round(qualityVal)));
     qualitySegments.forEach((el) => {
-      el.classList.toggle('is-active', Number(el.dataset.index) === activeIdx);
+      const isActive = Number(el.dataset.index) === activeIdx;
+      el.classList.toggle('is-active', isActive);
+      el.textContent = isActive ? qualityVal.toFixed(1) : '';
     });
     const band = getQualityBand(qualityVal);
     qualityCardEl.title = `Điểm hiện tại: ${qualityVal.toFixed(1)}/10 - ${band.label}`;
   } else {
-    qualitySegments.forEach(el => el.classList.remove('is-active'));
+    qualitySegments.forEach((el) => {
+      el.classList.remove('is-active');
+      el.textContent = '';
+    });
     qualityCardEl.title = 'Chưa có dữ liệu Chất lượng';
   }
 }
