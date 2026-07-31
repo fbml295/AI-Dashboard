@@ -515,8 +515,12 @@ button {
 .ai-result-panel.prediction-panel {
   width: 480px;
 }
-.prediction-panel__body {
-  white-space: normal;
+/* Dùng ID (#predictionPanelBody) thay vì class để CHẮC CHẮN thắng
+   .ai-result-panel__body (white-space: pre-wrap) bất kể thứ tự khai báo
+   trong file - tránh lặp lại lỗi khoảng trắng/xuống dòng trong code JS
+   bị hiển thị y nguyên thành khoảng trống lớn trên giao diện. */
+#predictionPanelBody {
+  white-space: normal !important;
   font-size: 0.8929rem;
 }
 .prediction-update-banner {
