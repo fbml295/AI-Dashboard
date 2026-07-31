@@ -15,6 +15,10 @@ let state = {
   chartMode: 'live',        // 'live' (tự trượt theo preset) | 'history' (đã đóng băng do user tự zoom/kéo)
   chartPresetMs: 15 * 60 * 1000, // độ dài cửa sổ khi ở chế độ live; null = "Toàn bộ"
   chartFrozenRange: null,   // [minMs, maxMs] khi ở chế độ history
+
+  // --- Mô hình theo dòng sản phẩm (học theo khoảng thời gian, lưu/gộp file) ---
+  productModel: null,       // { productName, featureKeys, targets: {class1:{...stats}, quality:{...stats}}, sessions: [...] }
+  useProductModelInPanel: false, // true = Section 1-3 dùng productModel thay vì mô hình tự động toàn bộ lịch sử
 };
 
 function showToast(message, type = 'info') {
@@ -279,10 +283,43 @@ function r2Label(r2) {
 }
 
 /**
+ * Trả về bộ mô hình đang ĐƯỢC DÙNG cho Section 1-3: hoặc mô hình sản phẩm đã
+ * tải/học (nếu bật toggle), hoặc mô hình tự động huấn luyện trên toàn bộ
+ * lịch sử hiện có (mặc định).
+ */
+function getActiveModels() {
+  if (state.useProductModelInPanel && state.productModel) {
+    const featureKeys = getProcessTagKeys();
+    try {
+      return {
+        class1: ProductModelModule.deriveModel(state.productModel.targets.class1, featureKeys),
+        quality: ProductModelModule.deriveModel(state.productModel.targets.quality, featureKeys),
+        source: 'product',
+      };
+    } catch (e) {
+      console.error(e);
+      showToast(e.message, 'error');
+    }
+  }
+  return {
+    class1: state.models ? state.models.class1 : { ok: false, reason: 'Chưa có mô hình tự động.' },
+    quality: state.models ? state.models.quality : { ok: false, reason: 'Chưa có mô hình tự động.' },
+    source: 'auto',
+  };
+}
+
+function msToDatetimeLocalStr(ms) {
+  if (!Number.isFinite(ms)) return '';
+  const d = new Date(ms);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
  * Tính & hiển thị khuyến nghị đóng/nhả đĩa dựa trên mục tiêu Chất lượng.
  * Được gọi tự động khi mở panel (mục tiêu mặc định = 5) và mỗi khi bấm "Tính lại".
  */
-function computeAndRenderRecommendation(latest) {
+function computeAndRenderRecommendation(latest, activeModels) {
   const recEl = document.getElementById('recommendationResult');
   const targetInput = document.getElementById('targetQualityInput');
   const targetQuality = parseFloat(targetInput.value);
@@ -293,7 +330,7 @@ function computeAndRenderRecommendation(latest) {
   }
 
   const currentGap = latest['plategap'];
-  const recommendedGap = ModelModule.solveForFeature(state.models.quality, latest, 'plategap', targetQuality);
+  const recommendedGap = ModelModule.solveForFeature(activeModels.quality, latest, 'plategap', targetQuality);
 
   if (recommendedGap == null || !Number.isFinite(recommendedGap)) {
     recEl.innerHTML = `<div class="pred-warning">Không thể tính khuyến nghị — mô hình cho thấy "plategap" gần như không ảnh hưởng tới Chất lượng theo dữ liệu hiện có.</div>`;
@@ -307,7 +344,7 @@ function computeAndRenderRecommendation(latest) {
     else { actionClass = 'pred-action--open'; actionText = 'NHẢ ĐĨA (tăng khe hở)'; }
   }
 
-  const predClass1AtRec = ModelModule.predict(state.models.class1, { ...latest, plategap: recommendedGap });
+  const predClass1AtRec = ModelModule.predict(activeModels.class1, { ...latest, plategap: recommendedGap });
   const range = getFeatureRange('plategap');
   const outOfRange = recommendedGap < range.min || recommendedGap > range.max;
 
@@ -316,8 +353,153 @@ function computeAndRenderRecommendation(latest) {
     <div class="pred-delta">Khe hở hiện tại: <b>${fmtVal(currentGap)} mm</b> → Đề xuất: <b>${fmtVal(recommendedGap)} mm</b> (${fmtDelta(delta)} mm)</div>
     <div class="pred-delta">Phân loại dự đoán tại mức đề xuất: <b>${fmtVal(predClass1AtRec)}%</b></div>
     ${outOfRange ? '<div class="pred-warning">⚠ Giá trị đề xuất nằm ngoài phạm vi khe hở đã ghi nhận trong lịch sử — cần thận trọng, đối chiếu giới hạn cơ khí thiết bị trước khi áp dụng.</div>' : ''}
-    <div class="pred-hint">*Khuyến nghị dựa trên mô hình hồi quy tuyến tính tự học từ dữ liệu lịch sử, giữ nguyên các thông số khác ở giá trị mới nhất.</div>
+    <div class="pred-hint">*Khuyến nghị dựa trên mô hình hồi quy tuyến tính, giữ nguyên các thông số khác ở giá trị mới nhất.</div>
   `;
+}
+
+/**
+ * Vẽ hộp trạng thái mô hình sản phẩm hiện tại (tên, R² từng target, lịch sử các lần học).
+ */
+function renderProductModelStatusBox() {
+  const box = document.getElementById('productStatusBox');
+  if (!box) return;
+
+  if (!state.productModel) {
+    box.innerHTML = '<div class="pred-hint">Chưa có mô hình sản phẩm nào được tạo/tải lên.</div>';
+    return;
+  }
+
+  const pm = state.productModel;
+  const featureKeys = getProcessTagKeys();
+  let class1Derived, qualityDerived;
+  try {
+    class1Derived = ProductModelModule.deriveModel(pm.targets.class1, featureKeys);
+    qualityDerived = ProductModelModule.deriveModel(pm.targets.quality, featureKeys);
+  } catch (e) {
+    box.innerHTML = `<div class="pred-warning">${e.message}</div>`;
+    return;
+  }
+
+  const sessionsHtml = (pm.sessions || []).slice().reverse().map(s =>
+    `<li>${s.from.replace('T', ' ')} → ${s.to.replace('T', ' ')} <span class="pred-session-rows">(+${s.rows.toLocaleString('vi-VN')} dòng)</span></li>`
+  ).join('');
+
+  box.innerHTML = `
+    <div class="pred-delta">📦 <b>${pm.productName}</b></div>
+    <div class="pred-reliability">
+      R² Phân loại: ${class1Derived.ok ? `<span class="pred-r2--${r2Class(class1Derived.r2)}">${(class1Derived.r2 * 100).toFixed(0)}%</span> (n=${class1Derived.n.toLocaleString('vi-VN')})` : `<span class="pred-r2--bad">${class1Derived.reason}</span>`}<br/>
+      R² Chất lượng: ${qualityDerived.ok ? `<span class="pred-r2--${r2Class(qualityDerived.r2)}">${(qualityDerived.r2 * 100).toFixed(0)}%</span> (n=${qualityDerived.n.toLocaleString('vi-VN')})` : `<span class="pred-r2--bad">${qualityDerived.reason}</span>`}
+    </div>
+    ${sessionsHtml ? `<div class="pred-hint">Lịch sử ${pm.sessions.length} lần học:</div><ul class="pred-session-log">${sessionsHtml}</ul>` : ''}
+  `;
+}
+
+function handleTrainProductRange() {
+  const nameInput = document.getElementById('productNameInput');
+  const fromInput = document.getElementById('productFromInput');
+  const toInput = document.getElementById('productToInput');
+  const resultEl = document.getElementById('productTrainResult');
+
+  const productName = nameInput.value.trim();
+  if (!productName) { resultEl.innerHTML = '<div class="pred-warning">Vui lòng nhập tên sản phẩm.</div>'; return; }
+
+  const fromMs = fromInput.value ? new Date(fromInput.value).getTime() : NaN;
+  const toMs = toInput.value ? new Date(toInput.value).getTime() : NaN;
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs) || fromMs >= toMs) {
+    resultEl.innerHTML = '<div class="pred-warning">Khoảng thời gian không hợp lệ ("Từ" phải nhỏ hơn "Đến").</div>';
+    return;
+  }
+  if (!state.dataset) { resultEl.innerHTML = '<div class="pred-warning">Chưa có dữ liệu.</div>'; return; }
+
+  const featureKeys = getProcessTagKeys();
+  const newStats = ProductModelModule.computeStatsFromRange(state.dataset, featureKeys, fromMs, toMs);
+
+  if (newStats.rowsInRange === 0) {
+    resultEl.innerHTML = '<div class="pred-warning">Không có dòng dữ liệu hợp lệ nào trong khoảng đã chọn.</div>';
+    return;
+  }
+
+  try {
+    if (state.productModel && state.productModel.productName === productName) {
+      // Cùng tên sản phẩm -> GỘP thêm vào mô hình đã có (học thêm, chính xác tuyệt đối)
+      const merged = ProductModelModule.mergeStats(
+        { featureKeys: state.productModel.featureKeys, targets: state.productModel.targets },
+        newStats
+      );
+      state.productModel.targets = merged.targets;
+    } else {
+      // Tên khác hoặc chưa có mô hình nào -> bắt đầu mô hình mới
+      state.productModel = { productName, featureKeys, targets: newStats.targets, sessions: [] };
+    }
+    state.productModel.sessions.push({
+      from: fromInput.value, to: toInput.value,
+      rows: newStats.rowsInRange, trainedAt: new Date().toISOString(),
+    });
+  } catch (e) {
+    resultEl.innerHTML = `<div class="pred-warning">${e.message}</div>`;
+    return;
+  }
+
+  resultEl.innerHTML = `<div class="pred-delta">✅ Đã học thêm <b>${newStats.rowsInRange.toLocaleString('vi-VN')}</b> dòng vào mô hình "<b>${productName}</b>".</div>`;
+  renderProductModelStatusBox();
+  document.getElementById('btnSaveProductModel').disabled = false;
+  document.getElementById('btnResetProductModel').disabled = false;
+}
+
+function handleSaveProductModel() {
+  if (!state.productModel) { showToast('Chưa có mô hình sản phẩm nào để lưu.', 'warn'); return; }
+  const payload = {
+    formatVersion: 1,
+    productName: state.productModel.productName,
+    featureKeys: state.productModel.featureKeys,
+    targets: state.productModel.targets,
+    sessions: state.productModel.sessions,
+    savedAt: new Date().toISOString(),
+  };
+  const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const safeName = state.productModel.productName.replace(/[^a-zA-Z0-9_\-]/g, '_') || 'model';
+  a.href = url;
+  a.download = `model_${safeName}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  showToast('Đã lưu file mô hình.', 'success');
+}
+
+function handleLoadProductModelFile(file) {
+  const reader = new FileReader();
+  reader.onload = () => {
+    try {
+      const data = JSON.parse(reader.result);
+      const featureKeys = getProcessTagKeys();
+      const fileKeys = data.featureKeys || [];
+      if (fileKeys.length !== featureKeys.length || fileKeys.some((k, i) => k !== featureKeys[i])) {
+        showToast('File không khớp bộ tag hiện tại của hệ thống — không thể tải.', 'error');
+        return;
+      }
+      state.productModel = {
+        productName: data.productName || 'Không tên',
+        featureKeys: fileKeys,
+        targets: data.targets,
+        sessions: data.sessions || [],
+      };
+      showToast(`Đã tải mô hình "${state.productModel.productName}" (${(data.sessions || []).length} lần học trước đó).`, 'success');
+      renderPredictionPanel();
+    } catch (e) {
+      console.error(e);
+      showToast('File không hợp lệ hoặc bị lỗi khi đọc.', 'error');
+    }
+  };
+  reader.readAsText(file);
+}
+
+function handleResetProductModel() {
+  state.productModel = null;
+  state.useProductModelInPanel = false;
+  renderPredictionPanel();
 }
 
 /**
@@ -325,18 +507,57 @@ function computeAndRenderRecommendation(latest) {
  */
 function renderPredictionPanel() {
   const body = document.getElementById('predictionPanelBody');
+  const activeModels = getActiveModels();
+  const hasDataset = !!state.dataset;
 
-  if (!state.dataset || !state.models || !state.models.class1.ok || !state.models.quality.ok) {
-    const reason = state.models
-      ? (!state.models.quality.ok ? state.models.quality.reason : state.models.class1.reason)
-      : 'Chưa có dữ liệu.';
-    body.innerHTML = `<div class="empty-hint">Chưa thể huấn luyện mô hình dự đoán: ${reason}</div>`;
+  // --- Section 0: Mô hình theo dòng sản phẩm (luôn hiển thị nếu có dataset, kể cả khi mô hình tự động chưa đủ dữ liệu) ---
+  const productSectionHtml = `
+    <div class="pred-section">
+      <div class="pred-section__title">📦 Mô hình theo dòng sản phẩm</div>
+      <div class="pred-hint">Chỉ định khoảng thời gian hợp lệ (tránh đoạn xấu như lúc khởi động) để AI học riêng cho 1 dòng sản phẩm — có thể lưu ra file, tải lên học tiếp sau này.</div>
+      <div class="pred-row">
+        <label class="pred-label">Tên sản phẩm:</label>
+        <input type="text" id="productNameInput" class="pred-input pred-input--wide" placeholder="vd: Bột giấy Acacia lô A"
+               value="${state.productModel ? state.productModel.productName.replace(/"/g, '&quot;') : ''}" />
+      </div>
+      <div class="pred-row">
+        <label class="pred-label">Từ:</label>
+        <input type="datetime-local" id="productFromInput" class="pred-input" />
+        <label class="pred-label">Đến:</label>
+        <input type="datetime-local" id="productToInput" class="pred-input" />
+      </div>
+      <button class="btn btn--primary" id="btnTrainProductRange" style="width:100%;" ${hasDataset ? '' : 'disabled'}>Học từ khoảng này</button>
+      <div id="productTrainResult" class="pred-result"></div>
+
+      <div class="pred-product-status" id="productStatusBox"></div>
+
+      <div class="pred-row" style="margin-top:10px;">
+        <button class="btn btn--ghost" id="btnSaveProductModel" ${state.productModel ? '' : 'disabled'}>💾 Lưu file</button>
+        <label class="btn btn--ghost pred-file-label" for="productFileInput">📂 Tải file lên</label>
+        <input type="file" id="productFileInput" accept=".json" style="display:none;" />
+        <button class="btn btn--ghost" id="btnResetProductModel" ${state.productModel ? '' : 'disabled'}>🗑 Xoá</button>
+      </div>
+
+      <label class="pred-toggle-row">
+        <input type="checkbox" id="useProductModelCheck" ${state.useProductModelInPanel ? 'checked' : ''} ${state.productModel ? '' : 'disabled'} />
+        Dùng mô hình sản phẩm này cho phần Dự đoán/Mô phỏng/Khuyến nghị bên dưới (thay vì mô hình tự động toàn bộ lịch sử)
+      </label>
+    </div>
+  `;
+
+  if (!hasDataset || !activeModels.class1.ok || !activeModels.quality.ok) {
+    const reason = !hasDataset
+      ? 'Chưa có dữ liệu.'
+      : (!activeModels.quality.ok ? activeModels.quality.reason : activeModels.class1.reason);
+    const sourceNote = activeModels.source === 'product' ? ' (đang dùng mô hình sản phẩm)' : '';
+    body.innerHTML = productSectionHtml + `<div class="empty-hint">Chưa thể dự đoán${sourceNote}: ${reason}</div>`;
+    wireProductModelSection(body);
     return;
   }
 
   const latest = getLatestFeatureVector();
-  const predClass1 = ModelModule.predict(state.models.class1, latest);
-  const predQuality = ModelModule.predict(state.models.quality, latest);
+  const predClass1 = ModelModule.predict(activeModels.class1, latest);
+  const predQuality = ModelModule.predict(activeModels.quality, latest);
   const lastIdx = state.dataset.timestamps.length - 1;
   const actualClass1 = state.dataset.series.class1[lastIdx];
   const actualQuality = state.dataset.series.quality[lastIdx];
@@ -355,15 +576,15 @@ function renderPredictionPanel() {
       </div>`;
   }).join('');
 
-  body.innerHTML = `
+  body.innerHTML = productSectionHtml + `
     <div class="pred-section">
-      <div class="pred-section__title">1. Dự đoán tại thông số hiện tại</div>
+      <div class="pred-section__title">1. Dự đoán tại thông số hiện tại ${activeModels.source === 'product' ? '<span class="pred-source-tag">MÔ HÌNH SẢN PHẨM</span>' : ''}</div>
       <div class="pred-reliability">
         Độ tin cậy mô hình (R²) — Phân loại:
-        <span class="pred-r2--${r2Class(state.models.class1.r2)}">${(state.models.class1.r2 * 100).toFixed(0)}% (${r2Label(state.models.class1.r2)})</span>,
+        <span class="pred-r2--${r2Class(activeModels.class1.r2)}">${(activeModels.class1.r2 * 100).toFixed(0)}% (${r2Label(activeModels.class1.r2)})</span>,
         Chất lượng:
-        <span class="pred-r2--${r2Class(state.models.quality.r2)}">${(state.models.quality.r2 * 100).toFixed(0)}% (${r2Label(state.models.quality.r2)})</span>
-        <span class="pred-reliability__n">— học từ ${state.models.quality.n.toLocaleString('vi-VN')} bản ghi</span>
+        <span class="pred-r2--${r2Class(activeModels.quality.r2)}">${(activeModels.quality.r2 * 100).toFixed(0)}% (${r2Label(activeModels.quality.r2)})</span>
+        <span class="pred-reliability__n">— học từ ${activeModels.quality.n.toLocaleString('vi-VN')} bản ghi</span>
       </div>
       <table class="pred-table">
         <tr><th></th><th>Thực tế (mới nhất)</th><th>Mô hình dự đoán</th></tr>
@@ -391,7 +612,9 @@ function renderPredictionPanel() {
     </div>
   `;
 
-  // --- Wiring: checkbox bật/tắt input tương ứng ---
+  wireProductModelSection(body);
+
+  // --- Wiring: checkbox bật/tắt input tương ứng (mô phỏng) ---
   body.querySelectorAll('.sim-check').forEach((cb) => {
     cb.addEventListener('change', () => {
       const valueInput = document.getElementById(`simValue_${cb.dataset.key}`);
@@ -416,8 +639,8 @@ function renderPredictionPanel() {
     }
 
     const scenario = { ...latest, ...overrides };
-    const newClass1 = ModelModule.predict(state.models.class1, scenario);
-    const newQuality = ModelModule.predict(state.models.quality, scenario);
+    const newClass1 = ModelModule.predict(activeModels.class1, scenario);
+    const newQuality = ModelModule.predict(activeModels.quality, scenario);
 
     const outOfRangeWarnings = Object.keys(overrides).map((key) => {
       const range = getFeatureRange(key);
@@ -437,10 +660,46 @@ function renderPredictionPanel() {
   });
 
   // --- Wiring: nút Tính lại khuyến nghị ---
-  document.getElementById('btnRunRecommendation').addEventListener('click', () => computeAndRenderRecommendation(latest));
+  document.getElementById('btnRunRecommendation').addEventListener('click', () => computeAndRenderRecommendation(latest, activeModels));
 
   // --- Tự động tính khuyến nghị ngay khi mở panel (mục tiêu mặc định = 5) ---
-  computeAndRenderRecommendation(latest);
+  computeAndRenderRecommendation(latest, activeModels);
+}
+
+/**
+ * Wire các nút/ô trong Section 0 (Mô hình sản phẩm) - tách riêng vì section
+ * này được render cả trong trường hợp chưa đủ dữ liệu để dự đoán.
+ */
+function wireProductModelSection(body) {
+  const fromInput = document.getElementById('productFromInput');
+  const toInput = document.getElementById('productToInput');
+  if (state.dataset && state.dataset.timestamps.length && !fromInput.value) {
+    // Gợi ý mặc định: khung thời gian đang xem trên biểu đồ (nếu đã đóng băng), tránh
+    // mặc định "toàn bộ lịch sử" (dễ dính luôn đoạn khởi động xấu ở đầu file).
+    if (state.chartMode === 'history' && state.chartFrozenRange) {
+      fromInput.value = msToDatetimeLocalStr(state.chartFrozenRange[0]);
+      toInput.value = msToDatetimeLocalStr(state.chartFrozenRange[1]);
+    }
+  }
+
+  renderProductModelStatusBox();
+
+  document.getElementById('btnTrainProductRange').addEventListener('click', handleTrainProductRange);
+  document.getElementById('btnSaveProductModel').addEventListener('click', handleSaveProductModel);
+  document.getElementById('btnResetProductModel').addEventListener('click', () => {
+    if (confirm('Xoá mô hình sản phẩm hiện tại? (File đã lưu trước đó trên máy bạn không bị ảnh hưởng)')) {
+      handleResetProductModel();
+    }
+  });
+  document.getElementById('productFileInput').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    if (file) handleLoadProductModelFile(file);
+    e.target.value = '';
+  });
+  document.getElementById('useProductModelCheck').addEventListener('change', (e) => {
+    state.useProductModelInPanel = e.target.checked;
+    renderPredictionPanel();
+  });
 }
 
 /* --------------------------- KPI CARDS (Class1 / Quality) --------------------------- */
