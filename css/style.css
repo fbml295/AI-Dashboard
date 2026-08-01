@@ -909,6 +909,39 @@ button {
 }
 .input-row input:focus { outline: none; border-color: var(--accent-cyan); }
 
+.model-check-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  flex-wrap: wrap;
+}
+.model-check-status {
+  font-size: 0.75rem;
+  font-family: var(--font-mono);
+}
+.model-check-status--checking { color: var(--text-dim); }
+.model-check-status--ok { color: var(--accent-green); }
+.model-check-status--warn { color: var(--accent-amber); }
+.model-check-status--error { color: var(--accent-red); }
+
+.field-row {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 12px;
+}
+.model-select {
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  color: var(--text-primary);
+  padding: 9px 10px;
+  font-family: var(--font-mono);
+  font-size: 0.8214rem;
+}
+.model-select:focus { outline: none; border-color: var(--accent-cyan); }
+
 .warning-box {
   margin-top: 12px;
   padding: 10px 12px;
