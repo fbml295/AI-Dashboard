@@ -228,7 +228,11 @@ YÊU CẦU PHÂN TÍCH:
 
       if (functionCallPart) {
         const { name, args } = functionCallPart.functionCall;
-        contents.push({ role: 'model', parts: [{ functionCall: { name, args } }] });
+        // QUAN TRỌNG: đẩy nguyên vẹn part gốc Gemini trả về (giữ cả trường
+        // thoughtSignature nếu có - model dạng "thinking" bắt buộc phải nhận
+        // lại đúng chữ ký này khi ta echo lịch sử functionCall về, nếu tự
+        // dựng lại object mới (chỉ có name/args) sẽ bị lỗi 400.
+        contents.push({ role: 'model', parts: [functionCallPart] });
 
         const functionResult = (name === 'query_tag_data')
           ? queryFn(args.tagKeys || [], args.fromDate, args.toDate)
@@ -241,7 +245,7 @@ YÊU CẦU PHÂN TÍCH:
         // Vòng lặp tiếp tục -> gọi lại generateContent, lần này Gemini đã có kết quả hàm để trả lời
       } else {
         finalText = parts.map(p => p.text).filter(Boolean).join('\n') || '(Không có phản hồi từ AI)';
-        contents.push({ role: 'model', parts: [{ text: finalText }] });
+        contents.push({ role: 'model', parts }); // giữ nguyên parts gốc (có thể kèm thoughtSignature)
       }
     }
 
