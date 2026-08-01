@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=20" />
+<link rel="stylesheet" href="css/style.css?v=21" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -101,6 +101,7 @@
 
       <div class="toolbar-spacer"></div>
 
+      <button class="btn btn--ghost" id="btnOpenChat" disabled title="Hỏi AI bất kỳ điều gì về dữ liệu đang có, vd: 'Từ ngày 20 đến 27 khe hở đĩa nghiền thay đổi bao nhiêu mm?'">💬 HỎI AI</button>
       <button class="btn btn--ghost" id="btnOpenPrediction" disabled title="Mô hình tự học từ dữ liệu lịch sử để dự đoán Phân loại/Chất lượng và mô phỏng thay đổi thông số">🔮 DỰ ĐOÁN</button>
       <button class="btn btn--primary" id="btnAnalyzeAI" disabled title="Phân tích toàn bộ thông số quá trình đối chiếu với Phân loại &amp; Chất lượng, đề xuất đóng/nhả đĩa nghiền">◆ PHÂN TÍCH AI</button>
     </div>
@@ -154,6 +155,21 @@
     <button class="btn btn--ghost btn--icon" id="btnCloseAiResult">✕</button>
   </div>
   <div class="ai-result-panel__body" id="aiResultContent"></div>
+</div>
+
+<!-- ===================== CHAT HỎI-ĐÁP TỰ DO (Function Calling - số liệu thật, không bịa) ===================== -->
+<div class="ai-result-panel chat-panel" id="chatPanel">
+  <div class="ai-result-panel__header">
+    <span class="ai-result-panel__title">💬 Hỏi AI về dữ liệu</span>
+    <button class="btn btn--ghost btn--icon" id="btnCloseChat">✕</button>
+  </div>
+  <div class="chat-messages" id="chatMessages">
+    <div class="empty-hint">Đặt câu hỏi tự do về dữ liệu, ví dụ: "Từ ngày 20 đến 27 khe hở đĩa nghiền thay đổi bao nhiêu mm?" — AI sẽ tự tra cứu số liệu thật trước khi trả lời.</div>
+  </div>
+  <div class="chat-input-row">
+    <input type="text" id="chatInput" placeholder="Nhập câu hỏi..." />
+    <button class="btn btn--primary" id="btnSendChat">Gửi</button>
+  </div>
 </div>
 
 <!-- ===================== PREDICTION & SIMULATION DRAWER (tách biệt, không dùng Gemini) ===================== -->
@@ -216,16 +232,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=20"></script>
-<script src="js/downsample.js?v=20"></script>
-<script src="js/model.js?v=20"></script>
-<script src="js/firebaseAuth.js?v=20"></script>
-<script src="js/firebaseData.js?v=20"></script>
-<script src="js/chart.js?v=20"></script>
-<script src="js/gemini.js?v=20"></script>
-<script src="js/settings.js?v=20"></script>
-<script src="js/statusIndicators.js?v=20"></script>
-<script src="js/app.js?v=20"></script>
+<script src="js/config.js?v=21"></script>
+<script src="js/downsample.js?v=21"></script>
+<script src="js/model.js?v=21"></script>
+<script src="js/firebaseAuth.js?v=21"></script>
+<script src="js/firebaseData.js?v=21"></script>
+<script src="js/chart.js?v=21"></script>
+<script src="js/gemini.js?v=21"></script>
+<script src="js/settings.js?v=21"></script>
+<script src="js/statusIndicators.js?v=21"></script>
+<script src="js/app.js?v=21"></script>
 
 </body>
 </html>
