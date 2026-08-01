@@ -726,11 +726,19 @@ function findNearestIndex(sortedTimestamps, target) {
   return (target - sortedTimestamps[before] <= sortedTimestamps[lo] - target) ? before : lo;
 }
 
-function getQualityBand(value) {
-  const { low, high } = APP_CONFIG.QUALITY_BANDS;
-  if (value < low) return { label: 'QUÁ THÔ', cssClass: 'bad' };
-  if (value > high) return { label: 'QUÁ MỊN', cssClass: 'warn' };
-  return { label: 'ĐẠT', cssClass: 'good' };
+/**
+ * Phân loại chi tiết 7 mức theo điểm số làm tròn (1-10), dùng cho tooltip
+ * khi hover vào ô Chất lượng - đúng thang do người vận hành quy định:
+ *   1-2: Quá thô   3: Thô   4: Hơi thô   5: Đạt   6: Hơi mịn   7: Mịn   8-10: Quá mịn
+ */
+function getQualityCategoryLabel(roundedValue) {
+  if (roundedValue <= 2) return 'Quá thô';
+  if (roundedValue === 3) return 'Thô';
+  if (roundedValue === 4) return 'Hơi thô';
+  if (roundedValue === 5) return 'Đạt';
+  if (roundedValue === 6) return 'Hơi mịn';
+  if (roundedValue === 7) return 'Mịn';
+  return 'Quá mịn'; // 8-10
 }
 
 /**
@@ -802,8 +810,8 @@ function updateKpiCards(ts) {
       el.classList.toggle('is-active', isActive);
       el.textContent = isActive ? qualityVal.toFixed(1) : '';
     });
-    const band = getQualityBand(qualityVal);
-    qualityCardEl.title = `Điểm hiện tại: ${qualityVal.toFixed(1)}/10 - ${band.label}`;
+    const categoryLabel = getQualityCategoryLabel(activeIdx);
+    qualityCardEl.title = `Điểm hiện tại: ${qualityVal.toFixed(1)}/10 - ${categoryLabel}`;
   } else {
     qualitySegments.forEach((el) => {
       el.classList.remove('is-active');
