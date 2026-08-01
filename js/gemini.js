@@ -16,6 +16,14 @@ const GeminiModule = (() => {
   }
 
   /**
+   * Model Gemini đang dùng - ưu tiên model người dùng đã chọn (sau khi kiểm
+   * tra key ở Cài đặt), nếu chưa chọn thì dùng mặc định trong config.js.
+   */
+  function getSelectedModel() {
+    return localStorage.getItem(APP_CONFIG.STORAGE_KEYS.GEMINI_MODEL) || APP_CONFIG.GEMINI_MODEL;
+  }
+
+  /**
    * Định dạng 1 dòng mô tả tag: tên, đơn vị, thống kê, xu hướng đầu-cuối file.
    */
   function formatTagLine(s, opts = {}) {
@@ -76,7 +84,7 @@ YÊU CẦU PHÂN TÍCH:
       throw new Error('Chưa cấu hình Gemini API Key. Vào Cài đặt để nhập key.');
     }
 
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${APP_CONFIG.GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${getSelectedModel()}:generateContent?key=${apiKey}`;
 
     const res = await fetch(url, {
       method: 'POST',
@@ -116,7 +124,7 @@ YÊU CẦU PHÂN TÍCH:
     return callGemini(prompt);
   }
 
-  return { hasApiKey, analyzeOperational };
+  return { hasApiKey, analyzeOperational, getSelectedModel };
 })();
 
 window.GeminiModule = GeminiModule;

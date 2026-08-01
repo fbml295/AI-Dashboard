@@ -38,6 +38,7 @@ const APP_CONFIG = {
   // Key lưu trong localStorage
   STORAGE_KEYS: {
     GEMINI_API_KEY: 'refinerAI_geminiApiKey',
+    GEMINI_MODEL: 'refinerAI_geminiModel', // model người dùng chọn sau khi kiểm tra key
   },
 };
 
