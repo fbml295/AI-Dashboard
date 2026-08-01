@@ -234,7 +234,10 @@ YÊU CẦU PHÂN TÍCH:
           ? queryFn(args.tagKeys || [], args.fromDate, args.toDate)
           : { error: `Hàm "${name}" không được hỗ trợ.` };
 
-        contents.push({ role: 'function', parts: [{ functionResponse: { name, response: functionResult } }] });
+        // Lưu ý: API báo role "function" không hợp lệ với model đang dùng - dùng "user"
+        // (nằm trong danh sách role hợp lệ) để gửi kết quả hàm, đây là cách phổ biến
+        // với các model/phiên bản API không hỗ trợ role "function" riêng.
+        contents.push({ role: 'user', parts: [{ functionResponse: { name, response: functionResult } }] });
         // Vòng lặp tiếp tục -> gọi lại generateContent, lần này Gemini đã có kết quả hàm để trả lời
       } else {
         finalText = parts.map(p => p.text).filter(Boolean).join('\n') || '(Không có phản hồi từ AI)';
