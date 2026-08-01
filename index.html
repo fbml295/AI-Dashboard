@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@300;400;500;600;700&family=IBM+Plex+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
 
-<link rel="stylesheet" href="css/style.css?v=19" />
+<link rel="stylesheet" href="css/style.css?v=20" />
 
 <!-- ECharts: vẽ trendline -->
 <script src="https://cdn.jsdelivr.net/npm/echarts@5.5.1/dist/echarts.min.js"></script>
@@ -179,9 +179,20 @@
     <div class="modal__body">
       <label class="field-label">API KEY (Google AI Studio)</label>
       <div class="input-row">
-        <input type="password" id="geminiApiKeyInput" placeholder="AIza..." autocomplete="off" />
+        <input type="password" id="geminiApiKeyInput" placeholder="AIza... hoặc AQ..." autocomplete="off" />
         <button class="btn btn--ghost" id="btnToggleKeyVisibility">HIỆN</button>
       </div>
+
+      <div class="model-check-row">
+        <button class="btn btn--ghost" id="btnCheckGeminiKey" type="button">🔍 Kiểm tra key &amp; tải danh sách mô hình</button>
+        <span class="model-check-status" id="geminiCheckStatus"></span>
+      </div>
+
+      <div class="field-row" id="geminiModelRow" style="display:none;">
+        <label class="field-label">MÔ HÌNH SỬ DỤNG</label>
+        <select id="geminiModelSelect" class="model-select"></select>
+      </div>
+
       <div class="warning-box">
         ⚠ Key được lưu trong <b>localStorage</b> của trình duyệt này — không mã hoá, không đồng bộ giữa các máy.
         Chỉ dùng key có giới hạn quota riêng (không dùng key billing chung của tổ chức) khi mở dashboard này trên máy dùng chung.
@@ -205,16 +216,16 @@
 <div class="toast-container" id="toastContainer"></div>
 
 <!-- ===================== APP SCRIPTS (thứ tự load quan trọng) ===================== -->
-<script src="js/config.js?v=19"></script>
-<script src="js/downsample.js?v=19"></script>
-<script src="js/model.js?v=19"></script>
-<script src="js/firebaseAuth.js?v=19"></script>
-<script src="js/firebaseData.js?v=19"></script>
-<script src="js/chart.js?v=19"></script>
-<script src="js/gemini.js?v=19"></script>
-<script src="js/settings.js?v=19"></script>
-<script src="js/statusIndicators.js?v=19"></script>
-<script src="js/app.js?v=19"></script>
+<script src="js/config.js?v=20"></script>
+<script src="js/downsample.js?v=20"></script>
+<script src="js/model.js?v=20"></script>
+<script src="js/firebaseAuth.js?v=20"></script>
+<script src="js/firebaseData.js?v=20"></script>
+<script src="js/chart.js?v=20"></script>
+<script src="js/gemini.js?v=20"></script>
+<script src="js/settings.js?v=20"></script>
+<script src="js/statusIndicators.js?v=20"></script>
+<script src="js/app.js?v=20"></script>
 
 </body>
 </html>
