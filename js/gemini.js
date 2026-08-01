@@ -124,7 +124,132 @@ YÊU CẦU PHÂN TÍCH:
     return callGemini(prompt);
   }
 
-  return { hasApiKey, analyzeOperational, getSelectedModel };
+  /**
+   * Định nghĩa "công cụ" (tool) cho Gemini Function Calling — Gemini sẽ TỰ QUYẾT
+   * ĐỊNH gọi hàm này khi câu hỏi cần số liệu cụ thể trong 1 khoảng thời gian,
+   * thay vì tự đoán/bịa số. Kết quả hàm do CHÍNH CODE của chúng ta tính toán
+   * (chính xác tuyệt đối từ dữ liệu thật), Gemini chỉ diễn giải lại bằng lời.
+   */
+  function buildQueryTool() {
+    const numericTags = TAG_DEFINITIONS.filter(t => t.type === 'numeric');
+    const enumList = numericTags.map(t => t.key);
+    const descLines = numericTags.map(t => `${t.key}: ${t.label} (${t.unit || 'không đơn vị'})`).join('\n');
+
+    return {
+      functionDeclarations: [{
+        name: 'query_tag_data',
+        description:
+          'Truy vấn dữ liệu cảm biến THỰC TẾ đã ghi nhận trong 1 khoảng thời gian cụ thể cho 1 hoặc nhiều tag, ' +
+          'trả về số liệu CHÍNH XÁC (giá trị đầu kỳ, cuối kỳ, mức thay đổi, min, max, trung bình). ' +
+          'LUÔN gọi hàm này khi người dùng hỏi về giá trị, xu hướng, hoặc mức thay đổi của bất kỳ thông số nào ' +
+          'trong 1 khoảng thời gian - KHÔNG được tự đoán hoặc suy diễn số liệu khi chưa gọi hàm.',
+        parameters: {
+          type: 'OBJECT',
+          properties: {
+            tagKeys: {
+              type: 'ARRAY',
+              items: { type: 'STRING', enum: enumList },
+              description: `Danh sách khoá tag cần tra cứu (có thể chọn nhiều). Các tag hợp lệ:\n${descLines}`,
+            },
+            fromDate: { type: 'STRING', description: 'Ngày bắt đầu, định dạng YYYY-MM-DD' },
+            toDate: { type: 'STRING', description: 'Ngày kết thúc (bao gồm cả ngày này), định dạng YYYY-MM-DD' },
+          },
+          required: ['tagKeys', 'fromDate', 'toDate'],
+        },
+      }],
+    };
+  }
+
+  /**
+   * Hỏi-đáp tự do dựa trên dữ liệu thật, dùng Gemini Function Calling.
+   *
+   * question : câu hỏi tiếng Việt tự nhiên của người dùng
+   * history  : mảng contents [{role, parts}] của cuộc hội thoại trước đó (rỗng nếu mới bắt đầu)
+   * queryFn  : hàm (tagKeys, fromDate, toDate) => object kết quả - do app.js cung cấp,
+   *            THỰC SỰ đọc và tính toán trên state.dataset (không đi qua Gemini)
+   * meta     : { timeRangeLabel } - khung thời gian dữ liệu hiện có, cho Gemini biết phạm vi hợp lệ
+   *
+   * Trả về { text, history } - history đã cập nhật để dùng cho câu hỏi tiếp theo (hội thoại nhiều lượt).
+   */
+  async function askQuestion(question, history, queryFn, meta = {}) {
+    const apiKey = getApiKey();
+    if (!apiKey) {
+      throw new Error('Chưa cấu hình Gemini API Key. Vào Cài đặt để nhập key.');
+    }
+
+    const contents = [...(history || [])];
+
+    if (contents.length === 0) {
+      const systemPreamble =
+        `Bạn là trợ lý phân tích dữ liệu vận hành máy nghiền bột giấy (refiner). Người dùng sẽ hỏi bằng tiếng Việt ` +
+        `về dữ liệu lịch sử đã ghi nhận (khung thời gian dữ liệu hiện có: ${meta.timeRangeLabel || 'không rõ'}). ` +
+        `Khi câu hỏi liên quan tới giá trị, xu hướng, hoặc mức thay đổi của bất kỳ thông số nào trong 1 khoảng ` +
+        `thời gian, LUÔN gọi hàm query_tag_data để lấy số liệu chính xác trước khi trả lời - KHÔNG được tự đoán ` +
+        `hoặc bịa số liệu. Trả lời ngắn gọn, rõ ràng bằng tiếng Việt, nêu đúng con số lấy được từ hàm, kèm đơn vị.`;
+      contents.push({ role: 'user', parts: [{ text: systemPreamble }] });
+      contents.push({ role: 'model', parts: [{ text: 'Đã hiểu, tôi sẽ luôn tra cứu số liệu thật trước khi trả lời.' }] });
+    }
+
+    contents.push({ role: 'user', parts: [{ text: question }] });
+
+    const tools = [buildQueryTool()];
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${getSelectedModel()}:generateContent?key=${apiKey}`;
+
+    let finalText = null;
+    let rounds = 0;
+
+    while (finalText === null && rounds < 4) {
+      rounds++;
+
+      const res = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents,
+          tools,
+          generationConfig: { temperature: 0.2, maxOutputTokens: 1000 },
+        }),
+      });
+
+      if (!res.ok) {
+        const errBody = await res.text();
+        let msg = `Gemini API lỗi (${res.status})`;
+        try {
+          const parsed = JSON.parse(errBody);
+          if (parsed.error && parsed.error.message) msg += `: ${parsed.error.message}`;
+        } catch (_) { /* ignore parse error */ }
+        throw new Error(msg);
+      }
+
+      const json = await res.json();
+      const candidate = json.candidates && json.candidates[0];
+      const parts = candidate?.content?.parts || [];
+      const functionCallPart = parts.find(p => p.functionCall);
+
+      if (functionCallPart) {
+        const { name, args } = functionCallPart.functionCall;
+        contents.push({ role: 'model', parts: [{ functionCall: { name, args } }] });
+
+        const functionResult = (name === 'query_tag_data')
+          ? queryFn(args.tagKeys || [], args.fromDate, args.toDate)
+          : { error: `Hàm "${name}" không được hỗ trợ.` };
+
+        contents.push({ role: 'function', parts: [{ functionResponse: { name, response: functionResult } }] });
+        // Vòng lặp tiếp tục -> gọi lại generateContent, lần này Gemini đã có kết quả hàm để trả lời
+      } else {
+        finalText = parts.map(p => p.text).filter(Boolean).join('\n') || '(Không có phản hồi từ AI)';
+        contents.push({ role: 'model', parts: [{ text: finalText }] });
+      }
+    }
+
+    if (finalText === null) {
+      finalText = 'AI không thể hoàn tất câu trả lời (quá nhiều bước tra cứu). Vui lòng hỏi cụ thể hơn.';
+    }
+
+    return { text: finalText, history: contents };
+  }
+
+  return { hasApiKey, analyzeOperational, getSelectedModel, askQuestion };
 })();
 
 window.GeminiModule = GeminiModule;

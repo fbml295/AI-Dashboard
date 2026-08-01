@@ -19,6 +19,9 @@ let state = {
   // --- Mô hình theo dòng sản phẩm (học theo khoảng thời gian, lưu/gộp file) ---
   productModel: null,       // { productName, featureKeys, targets: {class1:{...stats}, quality:{...stats}}, sessions: [...] }
   useProductModelInPanel: false, // true = Section 1-3 dùng productModel thay vì mô hình tự động toàn bộ lịch sử
+
+  // --- Hỏi-đáp tự do với Gemini (Function Calling) ---
+  chatHistory: [],          // mảng contents [{role, parts}] của cuộc hội thoại, dùng để hỏi nhiều lượt liên tiếp
 };
 
 function showToast(message, type = 'info') {
@@ -217,6 +220,131 @@ function getProcessTagKeys() {
 
 function updateAnalyzeButtonState() {
   document.getElementById('btnAnalyzeAI').disabled = !state.dataset;
+  document.getElementById('btnOpenChat').disabled = !state.dataset;
+}
+
+/* --------------------------- CHAT HỎI-ĐÁP TỰ DO (Gemini Function Calling) --------------------------- */
+
+/**
+ * Được GeminiModule.askQuestion() gọi lại (qua Function Calling) khi Gemini
+ * cần số liệu chính xác trong 1 khoảng ngày cụ thể. Hàm này đọc THẲNG trên
+ * state.dataset và tính toán - kết quả trả về là SỐ THẬT, không qua AI.
+ *
+ * tagKeys  : mảng key tag (vd ['plategap'])
+ * fromDate : chuỗi 'YYYY-MM-DD'
+ * toDate   : chuỗi 'YYYY-MM-DD' (bao gồm cả ngày này, tính tới 23:59:59)
+ */
+function queryTagData(tagKeys, fromDate, toDate) {
+  if (!state.dataset || !state.dataset.timestamps.length) {
+    return { error: 'Chưa có dữ liệu nào được nạp từ Firebase.' };
+  }
+
+  const fromMs = new Date(`${fromDate}T00:00:00`).getTime();
+  const toMs = new Date(`${toDate}T23:59:59`).getTime();
+  if (!Number.isFinite(fromMs) || !Number.isFinite(toMs)) {
+    return { error: `Định dạng ngày không hợp lệ (nhận được fromDate="${fromDate}", toDate="${toDate}"). Cần định dạng YYYY-MM-DD.` };
+  }
+
+  const { timestamps, series } = state.dataset;
+  const result = {
+    fromDate, toDate,
+    dataAvailableFrom: new Date(timestamps[0]).toISOString(),
+    dataAvailableTo: new Date(timestamps[timestamps.length - 1]).toISOString(),
+  };
+
+  (tagKeys || []).forEach((key) => {
+    const def = TAG_DEFINITIONS.find(t => t.key === key);
+    if (!def || !series[key]) {
+      result[key] = { error: `Không tìm thấy tag "${key}".` };
+      return;
+    }
+
+    const points = [];
+    for (let i = 0; i < timestamps.length; i++) {
+      const ts = timestamps[i];
+      if (ts < fromMs || ts > toMs) continue;
+      const v = series[key][i];
+      if (Number.isFinite(v)) points.push({ ts, v });
+    }
+
+    if (!points.length) {
+      result[key] = { label: def.label, unit: def.unit, error: 'Không có dữ liệu hợp lệ trong khoảng thời gian này.' };
+      return;
+    }
+
+    const values = points.map(p => p.v);
+    const firstPoint = points[0];
+    const lastPoint = points[points.length - 1];
+
+    result[key] = {
+      label: def.label,
+      unit: def.unit,
+      count: points.length,
+      firstValue: Number(firstPoint.v.toFixed(4)),
+      firstTime: new Date(firstPoint.ts).toISOString(),
+      lastValue: Number(lastPoint.v.toFixed(4)),
+      lastTime: new Date(lastPoint.ts).toISOString(),
+      min: Number(Math.min(...values).toFixed(4)),
+      max: Number(Math.max(...values).toFixed(4)),
+      mean: Number((values.reduce((a, b) => a + b, 0) / values.length).toFixed(4)),
+      changeFromFirstToLast: Number((lastPoint.v - firstPoint.v).toFixed(4)),
+    };
+  });
+
+  return result;
+}
+
+function appendChatMessage(role, text) {
+  const container = document.getElementById('chatMessages');
+  // Xoá empty-hint mặc định nếu đây là tin nhắn đầu tiên
+  const hint = container.querySelector('.empty-hint');
+  if (hint) hint.remove();
+
+  const bubble = document.createElement('div');
+  bubble.className = `chat-bubble chat-bubble--${role}`;
+  bubble.textContent = text;
+  container.appendChild(bubble);
+  container.scrollTop = container.scrollHeight;
+  return bubble;
+}
+
+async function handleSendChat() {
+  const input = document.getElementById('chatInput');
+  const question = input.value.trim();
+  if (!question) return;
+
+  if (!GeminiModule.hasApiKey()) {
+    showToast('Vui lòng nhập Gemini API Key ở Cài đặt trước.', 'warn');
+    document.getElementById('settingsModal').classList.add('is-open');
+    return;
+  }
+  if (!state.dataset) {
+    showToast('Chưa có dữ liệu từ Firebase để hỏi.', 'warn');
+    return;
+  }
+
+  input.value = '';
+  appendChatMessage('user', question);
+  const thinkingBubble = appendChatMessage('assistant', '⏳ Đang tra cứu dữ liệu...');
+
+  document.getElementById('btnSendChat').disabled = true;
+
+  try {
+    const { timestamps } = state.dataset;
+    const timeRangeLabel = timestamps.length
+      ? `${new Date(timestamps[0]).toLocaleString('vi-VN')} → ${new Date(timestamps[timestamps.length - 1]).toLocaleString('vi-VN')}`
+      : '';
+
+    const { text, history } = await GeminiModule.askQuestion(question, state.chatHistory, queryTagData, { timeRangeLabel });
+    state.chatHistory = history;
+    thinkingBubble.textContent = text;
+  } catch (err) {
+    console.error(err);
+    thinkingBubble.textContent = `⚠ Lỗi: ${err.message}`;
+    thinkingBubble.classList.add('chat-bubble--error');
+  } finally {
+    document.getElementById('btnSendChat').disabled = false;
+  }
 }
 
 /* --------------------------- MÔ HÌNH DỰ ĐOÁN (Ridge Regression, tự học) --------------------------- */
@@ -897,6 +1025,7 @@ async function handleAnalyzeAI() {
   const resultPanel = document.getElementById('aiResultPanel');
   const resultContent = document.getElementById('aiResultContent');
   document.getElementById('predictionPanel').classList.remove('is-open');
+  document.getElementById('chatPanel').classList.remove('is-open');
   resultPanel.classList.add('is-open');
   resultContent.textContent = '';
   setLoading(true, 'Gemini đang phân tích toàn bộ thông số vận hành và đề xuất đóng/nhả đĩa...');
@@ -933,8 +1062,25 @@ function wireUiEvents() {
   document.getElementById('btnCloseAiResult').addEventListener('click', () => {
     document.getElementById('aiResultPanel').classList.remove('is-open');
   });
+  document.getElementById('btnOpenChat').addEventListener('click', () => {
+    document.getElementById('aiResultPanel').classList.remove('is-open');
+    document.getElementById('predictionPanel').classList.remove('is-open');
+    document.getElementById('chatPanel').classList.add('is-open');
+    document.getElementById('chatInput').focus();
+  });
+  document.getElementById('btnCloseChat').addEventListener('click', () => {
+    document.getElementById('chatPanel').classList.remove('is-open');
+  });
+  document.getElementById('btnSendChat').addEventListener('click', handleSendChat);
+  document.getElementById('chatInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSendChat();
+    }
+  });
   document.getElementById('btnOpenPrediction').addEventListener('click', () => {
     document.getElementById('aiResultPanel').classList.remove('is-open');
+    document.getElementById('chatPanel').classList.remove('is-open');
     document.getElementById('predictionUpdateBanner').classList.remove('is-visible');
     renderPredictionPanel();
     document.getElementById('predictionPanel').classList.add('is-open');
@@ -1014,6 +1160,10 @@ function onFirebaseAuthStatusChange({ signedIn, user }) {
     document.getElementById('btnOpenPrediction').disabled = true;
     document.getElementById('predictionPanel').classList.remove('is-open');
     document.getElementById('aiResultPanel').classList.remove('is-open');
+    document.getElementById('chatPanel').classList.remove('is-open');
+    state.chatHistory = [];
+    document.getElementById('chatMessages').innerHTML =
+      '<div class="empty-hint">Đặt câu hỏi tự do về dữ liệu, ví dụ: "Từ ngày 20 đến 27 khe hở đĩa nghiền thay đổi bao nhiêu mm?" — AI sẽ tự tra cứu số liệu thật trước khi trả lời.</div>';
   }
 }
 
