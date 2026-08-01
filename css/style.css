@@ -264,7 +264,7 @@ button {
 
 .empty-hint {
   padding: 16px 12px;
-  color: var(--text-faint);
+  color: var(--text-dim);
   font-size: 0.8571rem;
   line-height: 1.6;
 }
@@ -283,7 +283,7 @@ button {
 }
 .file-item:hover { border-color: var(--accent-cyan); }
 .file-item__name { font-size: 0.8929rem; font-weight: 600; }
-.file-item__meta { font-size: 0.75rem; color: var(--text-faint); margin-top: 2px; font-family: var(--font-mono); }
+.file-item__meta { font-size: 0.75rem; color: var(--text-dim); margin-top: 2px; font-family: var(--font-mono); }
 
 .file-meta-bar {
   padding: 10px 16px;
@@ -500,6 +500,7 @@ button {
 .quality-bar__scale {
   display: flex;
   justify-content: space-between;
+  width: 100%;
   margin-top: 4px;
   padding: 0 1px;
   font-family: var(--font-mono);
@@ -559,7 +560,7 @@ button {
   margin-bottom: 10px;
   line-height: 1.6;
 }
-.pred-reliability__n { color: var(--text-faint); }
+.pred-reliability__n { color: var(--text-dim); }
 .pred-r2--good { color: var(--accent-green); font-weight: 600; }
 .pred-r2--warn { color: var(--accent-amber); font-weight: 600; }
 .pred-r2--bad  { color: var(--accent-red); font-weight: 600; }
@@ -575,7 +576,7 @@ button {
   padding: 6px 8px;
   border-bottom: 1px solid var(--border);
 }
-.pred-table th { color: var(--text-faint); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
+.pred-table th { color: var(--text-dim); font-weight: 500; font-size: 0.75rem; text-transform: uppercase; }
 .pred-table td:not(:first-child) { color: var(--accent-cyan); font-weight: 600; }
 
 .pred-sim-list {
@@ -600,7 +601,7 @@ button {
 }
 .pred-sim-row__unit {
   font-size: 0.7143rem;
-  color: var(--text-faint);
+  color: var(--text-dim);
   font-family: var(--font-mono);
   width: 34px;
 }
@@ -653,7 +654,7 @@ button {
   font-family: var(--font-mono);
   font-size: 0.8929rem;
 }
-.pred-hint { font-size: 0.75rem; color: var(--text-faint); margin-bottom: 8px; line-height: 1.5; }
+.pred-hint { font-size: 0.75rem; color: var(--text-dim); margin-bottom: 8px; line-height: 1.5; }
 
 .pred-result { margin-top: 10px; }
 .pred-delta { font-size: 0.8571rem; color: var(--text-primary); margin-bottom: 4px; line-height: 1.6; }
@@ -687,7 +688,7 @@ button {
 .help-hint {
   margin-top: 8px;
   font-size: 0.7857rem;
-  color: var(--text-faint);
+  color: var(--text-dim);
   line-height: 1.5;
 }
 
@@ -727,7 +728,7 @@ button {
   border-color: var(--accent-cyan);
   color: var(--accent-cyan);
 }
-.range-btn--custom { color: var(--text-faint); }
+.range-btn--custom { color: var(--text-dim); }
 
 .custom-range-popover {
   display: none;
@@ -1025,7 +1026,7 @@ button {
   font-family: var(--font-mono);
 }
 .pred-session-log li { padding: 2px 0; border-bottom: 1px solid var(--border); }
-.pred-session-rows { color: var(--text-faint); }
+.pred-session-rows { color: var(--text-dim); }
 
 .pred-toggle-row {
   display: flex;
