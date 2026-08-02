@@ -11,7 +11,7 @@ const APP_CONFIG = {
   // an toàn để commit lên repo public. Bảo mật thực sự nằm ở Security Rules
   // trên Firebase Console, không nằm ở việc giấu các giá trị này.
   FIREBASE_CONFIG: {
-    apiKey: "",
+    apiKey: "AIzaSyAur_0qMiYgMBNvIIm7TpJGsqaRSAIAa24",
     authDomain: "ai-dashboard-9e77e.firebaseapp.com",
     databaseURL: "https://ai-dashboard-9e77e-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "ai-dashboard-9e77e",
