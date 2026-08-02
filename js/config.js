@@ -11,13 +11,13 @@ const APP_CONFIG = {
   // an toàn để commit lên repo public. Bảo mật thực sự nằm ở Security Rules
   // trên Firebase Console, không nằm ở việc giấu các giá trị này.
   FIREBASE_CONFIG: {
-    apiKey: "AIzaSyAur_0qMiYgMBNvIIm7TpJGsqaRSAIAa24",
+    apiKey: "AIzaSyBfdxDxof0ZcVCXuelGnQBjdkGPiKcG_-E",
     authDomain: "ai-dashboard-9e77e.firebaseapp.com",
     databaseURL: "https://ai-dashboard-9e77e-default-rtdb.asia-southeast1.firebasedatabase.app",
     projectId: "ai-dashboard-9e77e",
     storageBucket: "ai-dashboard-9e77e.firebasestorage.app",
     messagingSenderId: "430202775063",
-    appId: "1:430202775063:web:e04a2dc043e5bea5c21e52",
+    appId: "1:430202775063:web:5e3df32933681a4ac21e52",
   },
 
   // Node gốc trên Realtime Database chứa dữ liệu SCADA (do gateway PowerShell ghi vào)
